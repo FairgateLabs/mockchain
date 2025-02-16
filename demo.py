@@ -1,55 +1,30 @@
-from mockchain import *
+from mockchain.scenario import Agent, Scenario
+from mockchain.bitcoin import Bitcoin
+from mockchain.cardano import Cardano
 
-# initialize simulated blockchain
-blockchain = Blockchain()
-faucet = blockchain.faucet
-alice = User('alice')
-miner = User('miner')
+async def agent0(scenario):
+    bitcoin = scenario.bitcoin
 
-tx = blockchain.transfer(faucet, alice, 1000)
-output = tx.outputs[0]
+    await bitcoin.wait_for_block(3)
+    tx = bitcoin.transfer(bitcoin.faucet, scenario.alice, 1000)
+    bitcoin.add_transaction(tx)
+    await bitcoin.wait_for_transaction(tx)
+    print("transfered")
 
-blockchain.mine_transaction(tx)
-print(blockchain.utxo_set)
-blockchain.mine_blocks()
+class Agent1(Agent):
+    async def run(self, scenario):
+        await self.bitcoin.wait_for_block(30)
+        tx1 = self.bitcoin.transfer(self.wallet, self.scenario.alice, 1000)
+        self.bitcoin.add_transaction(tx1)
+        await self.bitcoin.wait_for_transaction(tx1)
+        tx2 = self.cardano.transfer(self.wallet, self.scenario.bob, 500)
+        self.cardano.add_transaction(tx2)
+        await self.cardano.wait_for_transaction(tx2)
+        print("done")
 
-# transfer into a p2reveal script (requires a secret to spend)
-output2 = Output(500, Script.p2pubkey(alice))
-output3 = Output(500, Script.p2reveal([commit("secret")], alice))
-tx = blockchain.create_transaction([output.ptr], [output2, output3])
-tx.inputs[0].set_witness([alice.sign(tx.hash)])
+scenario = Scenario([agent0, Agent1()], [Bitcoin(), Cardano()])
 
-blockchain.add_transaction(tx)
-print(blockchain.utxo_set)
-blockchain.mine_blocks()
-print(blockchain.utxo_set)
+result = scenario.execute()
+print(scenario.blockchains[0].block_height, "blocks")
 
-
-# spend from p2reveal showing signature and "secret"
-# this has a 10 block timelock
-input = Input(output3.ptr)
-output = Output(500, Script.p2timelock(10, alice))
-tx = blockchain.create_transaction([input], [output])
-tx.inputs[0].set_witness([alice.sign(tx.hash), "secret"])
-
-blockchain.add_transaction(tx)
-blockchain.mine_blocks()
-print(blockchain.utxo_set)
-
-input=Input(output.ptr)
-output=Output(499, Script.p2pubkey(alice))
-tx = blockchain.create_transaction([input], [output])
-tx.inputs[0].set_witness([alice.sign(tx.hash)])
-
-blockchain.add_transaction(tx)
-blockchain.mine_blocks()
-print(tx.status)
-
-blockchain.mine_blocks(10)
-
-blockchain.add_transaction(tx)
-blockchain.mine_blocks(miner=miner)
-print(tx.status)
-
-print(blockchain.utxo_set)
-
+print(result)
