@@ -51,16 +51,21 @@ class Scenario:
         for blockchain in self.blockchains:
             self.__setattr__(blockchain.name, blockchain)
 
+       
         for agent in agents:
             if not isinstance(agent, Agent):
                 continue
-
+            
             agent.scenario = self
+
             for blockchain in self.blockchains:
                 agent.__setattr__(blockchain.name, blockchain)
+            
                 tx = blockchain.transfer(blockchain.faucet, agent.wallet, 10000)
                 blockchain.add_transaction(tx)
                 blockchain.mine_block()
+                
+        
 
     def listen(self, host: str, service : str, callback : Callable): 
         url = get_url(host, service)

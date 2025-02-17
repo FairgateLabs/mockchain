@@ -5,8 +5,6 @@ Signature = int
 N = 10000000001141
 G = 2
 
-
-
 Script=Callable
 
 def hash(msg):
@@ -24,12 +22,12 @@ class Cryptic:
         Cryptic.names[value] = name
         Cryptic.values[name] = value
 
+    @staticmethod
     def get(value):
         if value in Cryptic.names:
             return Cryptic.names[value]
         return value
     
-
 
 class Secret:
     seed = "seed"
@@ -48,7 +46,6 @@ class Secret:
         return hash(Secret.seed+"_"+str(index))
     
 
-
 class Key:
     def __init__(self, name : str):
         self.name = name
@@ -61,7 +58,6 @@ class Key:
     def sign(self,msg : str) -> Signature:
         h = number_from_hex(hash(msg))
         k = Secret.number()
-        k = 1
         r = pow(G, k, N)
         s = (k + self.secret * h) % (N-1)
         sign = (r, s)

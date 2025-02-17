@@ -185,6 +185,11 @@ class Input:
 class CardanoTransaction(Transaction):
     def __init__(self, blockchain : "Cardano", inputs : List[Input|str], outputs : List[Output], reference_inputs: List[Input|str] = None, mint: Value = None):
         inputs = [input if type(input) is Input else Input(input) for input in inputs]
+ 
+        for output in outputs:
+            if not isinstance(output, Output):
+                raise Exception("Invalid output")
+            
         if reference_inputs is not None:
             reference_inputs = [input if type(input) is Input else Input(input) for input in reference_inputs]
         
@@ -202,7 +207,7 @@ class CardanoTransaction(Transaction):
         self.redeemers = {}
         self.status = TransactionStatus.CREATED
 
-        txdata = str(self)
+        txdata = ",".join([input.ptr for input in self.inputs]) + ") -> (" + ",".join([str(output) for output in self.outputs]) 
         self.hash = hash(str(txdata))
 
         for i in range(len(self.outputs)):
@@ -211,15 +216,20 @@ class CardanoTransaction(Transaction):
     
     
     def __str__(self):
-        return  ",".join([input.ptr for input in self.inputs]) + " -> " + ",".join([str(output) for output in self.outputs])
+        return  Cryptic.get(self.hash) + " (" + ",".join([Cryptic.get(input.ptr) for input in self.inputs]) + ") -> (" + ",".join([str(output) for output in self.outputs]) + ")" + self.status.value
     
     def __repr__(self):
-        return  ",".join([input.ptr for input in self.inputs]) + " -> " + ",".join([str(output) for output in self.outputs])
+        return  Cryptic.get(self.hash) + " (" + ",".join([Cryptic.get(input.ptr) for input in self.inputs]) + ") -> (" + ",".join([str(output) for output in self.outputs]) + ")" + self.status.value
     
-    def sign(self, user : User):
-        self.signatures.append(user.sign(self.hash))
-        self.signatories.append(Address.get(user))
+    def add_signature(self, signature : str, address : Address):
+        self.signatures.append(signature)
+        self.signatories.append(address)
         self.status = TransactionStatus.SIGNED
+        
+    def sign(self, user : User):
+        signature = user.sign(self.hash)
+        self.add_signature(signature, user.get_address())
+ 
         return True
     
     def set_time_range(self, time_range : TimeRange):
@@ -252,6 +262,7 @@ class Cardano(Blockchain):
         self.mempool = []
         self.blocks = []
         self.policies = {}
+        self.transaction_dict = {}
 
     
     def add_policy(self, script : Script) -> PolicyId:
@@ -264,14 +275,27 @@ class Cardano(Blockchain):
         self.policies[policy] = script
         return policy
     
+    def get_transaction(self, hash : str):
+        return self.transaction_dict.get(hash,None)
+    
     def create_transaction(self, inputs : List[Input|str], outputs : List[Output], reference_inputs : List[Input|str] = None, mint : Value = None):
         return CardanoTransaction(self, inputs, outputs, reference_inputs, mint)
     
     def create_mint_transaction(self, mint : Value, destination : Address):
         return CardanoTransaction(self, [], [Output(destination, mint)], mint=mint)
     
-    def add_transaction(self, transaction : CardanoTransaction):
+    def add_transaction(self, transaction : CardanoTransaction, name : Optional[str] = None):
+        if name is None:
+            name = "tx"+str(len(self.transaction_dict))
+
+        Cryptic.add(name, transaction.hash)
+
+        for i in range(len(transaction.outputs)):
+            si = str(i)
+            Cryptic.add(name+":"+si, transaction.hash +":"+si)
+        
         self.mempool.append(transaction)
+        self.transaction_dict[transaction.hash] = transaction
 
     def mine_transaction(self, transaction : CardanoTransaction, check_inputs=True): 
         if transaction.status == TransactionStatus.CONFIRMED:
@@ -431,7 +455,22 @@ class Cardano(Blockchain):
         tx.sign(user)
         return tx
     
+    def print(self, block_height : Optional[int] = None):
+        start = 0
+        end = len(self.blocks)
 
+        if block_height is not None:
+            start = block_height
+            end = block_height+1
+
+        for i in range(start, end):
+            print(f"Cardano Block {i} -----------------------------------------")
+            for tx in self.blocks[i]:
+                print(f"  {tx}")
+
+    def print_utxos(self):
+        for utxo in self.utxo_set:
+            print(Cryptic.get(utxo), self.utxo_set[utxo])
 
 
     def __str__(self):

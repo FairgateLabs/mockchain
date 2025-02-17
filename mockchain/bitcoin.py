@@ -1,5 +1,5 @@
 from enum import Enum
-from mockchain.crypto import hash, commit, Key, Public, Address
+from mockchain.crypto import hash, commit, Key, Public, Address, Cryptic
 from typing import List, Optional, Union
 from mockchain.blockchain import User, Transaction, TransactionStatus, Blockchain 
 
@@ -209,12 +209,14 @@ class Input:
         return ptr + " ["+", ".join([str(w) for w in self.witness])+"]"
     
 
-
-
 class BitcoinTransaction(Transaction):
     def __init__(self, blockchain : "Bitcoin", inputs : List[Input|str], outputs : List[Output]):
         inputs = [input if type(input) is Input else Input(input) for input in inputs]
 
+        for output in outputs:
+            if not isinstance(output, Output):
+                raise Exception("Invalid output")
+ 
         self.blockchain = blockchain
         self.inputs = inputs
         self.outputs = outputs
@@ -224,10 +226,10 @@ class BitcoinTransaction(Transaction):
         self.hash = hash(str(txdata))
     
     def __str__(self):
-        return "TX ["+", ".join(str(input.ptr) for input in self.inputs)+"] -> ["+", ".join([str(output) for output in self.outputs])+"] ("+self.status.value+")"
+        return Cryptic.get(self.hash) + " ["+", ".join(Cryptic.get(input.ptr) for input in self.inputs)+"] -> ["+", ".join([str(output) for output in self.outputs])+"] ("+self.status.value+")"
     
     def __repr__(self):
-        return "TX ["+", ".join(str(input.ptr) for input in self.inputs)+"] -> ["+", ".join([str(output) for output in self.outputs])+"] ("+self.status.value+")"
+        return Cryptic.get(self.hash) + " ["+", ".join(Cryptic.get(input.ptr) for input in self.inputs)+"] -> ["+", ".join([str(output) for output in self.outputs])+"] ("+self.status.value+")"
    
     def add_signature(self, user: Public, signature : str):
         satisfied = True
@@ -290,14 +292,24 @@ class Bitcoin(Blockchain):
         self.transaction_dict = {}
 
     def get_transaction(self, hash : str):
-        return self.transaction_dict[hash]
+        return self.transaction_dict.get(hash,None)
 
     def create_transaction(self, inputs : List[Input|str], outputs : List[Output]):
         return BitcoinTransaction(self, inputs, outputs)
     
-    def add_transaction(self, transaction : BitcoinTransaction):
+    def add_transaction(self, transaction : BitcoinTransaction, name : Optional[str] = None):
+        if name is None:
+            name = "tx"+str(len(self.transaction_dict))
+
+        Cryptic.add(name, transaction.hash)
+
+        for i in range(len(transaction.outputs)):
+            si = str(i)
+            Cryptic.add(name+":"+si, transaction.hash +":"+si)
+        
         self.mempool.append(transaction)
         self.transaction_dict[transaction.hash] = transaction
+
 
     def mine_transaction(self, transaction : BitcoinTransaction, check_inputs=True): 
         if transaction.status == TransactionStatus.CONFIRMED:
@@ -436,9 +448,22 @@ class Bitcoin(Blockchain):
         tx.sign(user)
         return tx
 
-    def show_utxos(self):
+    def print(self, block_height : Optional[int] = None):
+        start = 0
+        end = len(self.blocks)
+
+        if block_height is not None:
+            start = block_height
+            end = block_height+1
+
+        for i in range(start, end):
+            print(f"Bitcoin Block {i} -----------------------------------------")
+            for tx in self.blocks[i]:
+                print(f"  {tx}")
+
+    def print_utxos(self):
         for utxo in self.utxo_set:
-            print(self.utxo_set[utxo])
+            print(Cryptic.get(utxo), self.utxo_set[utxo])
 
         
     def __str__(self):
