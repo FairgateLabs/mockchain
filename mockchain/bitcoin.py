@@ -105,6 +105,9 @@ class Script:
         addr = Address.get_str(addr)
         return len(self.script) == 1 and self.script[0].opcode == "check_sig" and self.script[0].args[0] == addr
     
+    def is_p2timelock(self):
+        return any(op.opcode == "timelock" for op in self.script)
+
     def run(self, stack, tx):
         for op in self.script:
             if op.opcode == "check_sig":
