@@ -224,10 +224,10 @@ class BitcoinTransaction(Transaction):
         self.hash = hash(str(txdata))
     
     def __str__(self):
-        return "TX ["+", ".join(str(input.ptr) for input in self.inputs)+"] -> ["+", ".join([str(output) for output in self.outputs])+"] ("+self.status+")"
+        return "TX ["+", ".join(str(input.ptr) for input in self.inputs)+"] -> ["+", ".join([str(output) for output in self.outputs])+"] ("+self.status.value+")"
     
     def __repr__(self):
-        return "TX ["+", ".join(str(input.ptr) for input in self.inputs)+"] -> ["+", ".join([str(output) for output in self.outputs])+"] ("+self.status+")"
+        return "TX ["+", ".join(str(input.ptr) for input in self.inputs)+"] -> ["+", ".join([str(output) for output in self.outputs])+"] ("+self.status.value+")"
    
     def sign(self, user : User ):
         signature = user.sign(self.hash)
