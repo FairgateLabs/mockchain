@@ -229,8 +229,7 @@ class BitcoinTransaction(Transaction):
     def __repr__(self):
         return "TX ["+", ".join(str(input.ptr) for input in self.inputs)+"] -> ["+", ".join([str(output) for output in self.outputs])+"] ("+self.status.value+")"
    
-    def sign(self, user : User ):
-        signature = user.sign(self.hash)
+    def add_signature(self, user: Public, signature : str):
         satisfied = True
 
         for input in self.inputs:
@@ -258,8 +257,10 @@ class BitcoinTransaction(Transaction):
             self.status = TransactionStatus.PARTIALLY_SIGNED
 
         return satisfied
-    
 
+    def sign(self, user : User):
+        signature = user.sign(self.hash)
+        return self.add_signature(user, signature)
 
 class Bitcoin(Blockchain):
     def __init__(self, faucet : User = None, supply : int = 1000000, block_reward : int = 50):
@@ -285,14 +286,18 @@ class Bitcoin(Blockchain):
         self.mempool = []
         self.blocks = []
         self.subscribers = []
- 
-        
-    
+
+        self.transaction_dict = {}
+
+    def get_transaction(self, hash : str):
+        return self.transaction_dict[hash]
+
     def create_transaction(self, inputs : List[Input|str], outputs : List[Output]):
         return BitcoinTransaction(self, inputs, outputs)
     
     def add_transaction(self, transaction : BitcoinTransaction):
         self.mempool.append(transaction)
+        self.transaction_dict[transaction.hash] = transaction
 
     def mine_transaction(self, transaction : BitcoinTransaction, check_inputs=True): 
         if transaction.status == TransactionStatus.CONFIRMED:
