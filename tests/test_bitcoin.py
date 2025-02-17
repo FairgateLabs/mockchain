@@ -1,6 +1,6 @@
 import unittest
 from mockchain.bitcoin import Bitcoin, Output, Input, Script
-from mockchain.blockchain import User
+from mockchain.blockchain import User, TransactionStatus
 
 
 class TestBitcoin(unittest.TestCase):
@@ -19,6 +19,34 @@ class TestBitcoin(unittest.TestCase):
         self.assertEqual(blockchain.utxo_set[utxos[0]].amount, 1000)
 
         self.assertEqual(tx.sequence, 0)
+
+    def test_double_spend(self):
+        blockchain = Bitcoin()
+        faucet = blockchain.faucet
+        alice = User('alice')
+        bob = User('bob')
+
+        tx = blockchain.transfer(faucet, alice, 1)
+        blockchain.add_transaction(tx)
+        blockchain.mine_block()
+
+        o2 = Output(1, Script.p2pubkey(bob))
+        tx2 = blockchain.create_transaction([tx.outputs[0].ptr], [o2])
+        tx2.sign(alice)
+        blockchain.add_transaction(tx2)
+        blockchain.mine_block()
+
+        tx3 = blockchain.create_transaction([tx.outputs[0].ptr], [o2])
+        tx3.sign(alice)
+        blockchain.add_transaction(tx3)
+        blockchain.mine_block()
+
+        self.assertEqual(tx.status, TransactionStatus.CONFIRMED)
+        self.assertEqual(tx2.status, TransactionStatus.CONFIRMED)
+        self.assertEqual(tx3.status, TransactionStatus.FAILED)
+
+
+        
         
 class TestOrdinals(unittest.TestCase):
     def test_presupply(self):

@@ -1,12 +1,13 @@
 import hashlib
-from typing import List
-
-
+from typing import List, Callable
 Signature = int
 
 N = 10000000001141
 G = 2
 
+
+
+Script=Callable
 
 def hash(msg):
     return hashlib.sha256(msg.encode("utf8")).hexdigest()[0:20]
@@ -53,10 +54,8 @@ class Key:
         self.name = name
         self.secret = Secret.number()
         self.public = Public.from_secret(self.secret)  
-        Cryptic.add("s_"+self.name, self.secret)
-        Cryptic.add("@"+self.name, self.public.pubkey)
 
-    def public(self):
+    def get_public(self):
         return self.public
 
     def sign(self,msg : str) -> Signature:
@@ -69,7 +68,7 @@ class Key:
         return sign
 
     def verify(self, msg : str, signature : Signature) -> bool:
-        return self.public.verify(msg, signature)
+        return self.get_public().verify(msg, signature)
 
     def encrypt(self, msg : int) -> int:
         return (msg - self.secret + N) % N
@@ -85,12 +84,13 @@ class Key:
 class Public:
     def __init__(self, pubkey : int):
         self.pubkey = pubkey
+        self.address = Address.get(self)
 
     @staticmethod
     def from_secret(secret):
         return Public(pow(G, secret, N))
      
-    def public(self):
+    def get_public(self):
         return self
     
     def sign(self, msg):
@@ -113,12 +113,80 @@ class Public:
     def __repr__(self):
         return Cryptic.get(self.pubkey)
 
+
+class Address:
+    cache = {}
+
+    @staticmethod
+    def get(source) -> "Address":
+        if type(source) is int:
+            source = hex(source)
+
+        if type(source) is str:
+            if source in Address.cache:
+                return Address.cache[source]
+            
+            raise Exception("Address not found")
+        
+        if type(source) is Address:
+            return source
+        
+        if callable(source):
+            if source.__code__.co_code in Address.cache:
+                return Address.cache[source.__code__.co_code]
+            
+            address = Address(source)
+            Address.cache[str(source.__code__.co_code)] = address
+            return address
+        
+        source = source.get_public()
+
+        if isinstance(source,Public):
+            if source.pubkey in Address.cache:
+                return Address.cache[source.pubkey]
+            
+            address = Address(source)
+            Address.cache[source.pubkey] = address
+            return address
+        
+        
+        
+        raise Exception("Invalid address source")
+    
+    def verify(self, msg, signature):
+        if self.is_script:
+            raise Exception("Cannot verify with script address")
+        
+        return self.public.verify(msg, signature)
+    
+    def __init__(self, source : Public|Script):
+        if isinstance(source,Public):
+            self.public = source
+            self.value = hash("public+"+hex(source.pubkey))
+            self.is_script = False
+            Address.cache[self.value] = self
+        elif callable(source):
+            self.script = source
+            self.value = hash("script+"+str(source.__code__.co_code))
+            self.is_script = True
+            Address.cache[self.value] = self
+
+        else:
+            raise Exception("Invalid address source")
+
+
+    def __str__(self):
+        return Cryptic.get(self.value)
+    
+    def __repr__(self):
+        return Cryptic.get(self.value)
+    
  
 class AggregatePublic(Public):
     def __init__(self, name : str, publics : List[Public]):
         self.name = name
 
-        pubkeys = [x.pubkey for x in publics]
+        pubkeys = [x.get_public().pubkey for x in publics]
         pubkeys.sort()
 
         self.coef = number_from_hex(hash(",".join(map(str, pubkeys))))
@@ -129,7 +197,10 @@ class AggregatePublic(Public):
             z = (z * p) % N
 
         self.pubkey = z
+        self.address = Address.get(self)
+
         Cryptic.add("@"+self.name, self.pubkey)
+        Cryptic.add("#"+self.name, self.address.value)
 
     def aggregate(self, signatures : List[Signature]) -> Signature:
         r = 1

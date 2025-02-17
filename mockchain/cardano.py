@@ -1,7 +1,7 @@
 from enum import Enum
-from mockchain.crypto import hash, commit, Key, Public, Cryptic
+from mockchain.crypto import hash, commit, Key, Public, Cryptic, Address
 from typing import List, Optional, Union, Dict, Tuple, Callable
-from mockchain.blockchain import User, Address, get_public, Transaction, TransactionStatus, Blockchain 
+from mockchain.blockchain import User, Transaction, TransactionStatus, Blockchain 
 
 
 PolicyId = str
@@ -127,27 +127,42 @@ class ScriptContext:
         self.purpose = purpose
         self.txinfo = transaction
         self.policy = policy
+        self.txout = None
 
 class Output:
-    def __init__(self, address : Address, value : Value, datum : Datum = None, script : Script = None):
-        self.address = get_public(address)
+    def __init__(self, address : Address, value : Value | int, datum : Datum = None):
+        if type(value) is int:
+            value = Value.ADA(value)
+
+        address = Address.get(address)
+        self.address = address
+
+        if address.is_script:
+            self.script = address.script
+        else:
+            self.script = None
+
         self.value = value
         self.datum = datum
-        self.script = script
     
-    def satisfy(self, signatories : List[Address] ) -> bool:
+    def satisfy(self, transaction : "CardanoTransaction" ) -> bool:
+        if self.script is not None:
+            context = ScriptContext(ScriptPurpose.Spending, transaction, None)
+            context.txout = self
+
+            if not self.script(transaction.redeemers, context):
+                return False
+            
+        if not self.address.is_script:
+            if self.address not in transaction.signatories:
+                return False
+            
         return True
     
     def __str__(self):
         v = str(self.value)+ " -> " + str(self.address)
-        if self.script is not None:
-            v += " {"+self.script
-            
-            if self.datum is not None:
-                v +="("+str(self.datum)+")"
-
-            v += "}"
-
+        if self.datum is not None:
+            v +="("+str(self.datum)+")"
         return v
     
     def __repr__(self):
@@ -182,6 +197,7 @@ class CardanoTransaction(Transaction):
         self.outputs = outputs
         self.mint = mint
         self.time_range = None
+        self.signatures = []
         self.signatories = []
         self.redeemers = {}
         self.status = TransactionStatus.CREATED
@@ -201,7 +217,8 @@ class CardanoTransaction(Transaction):
         return  ",".join([input.ptr for input in self.inputs]) + " -> " + ",".join([str(output) for output in self.outputs])
     
     def sign(self, user : User):
-        self.signatories.append(get_public(user))
+        self.signatures.append(user.sign(self.hash))
+        self.signatories.append(Address.get(user))
         self.status = TransactionStatus.SIGNED
         return True
     
@@ -223,7 +240,7 @@ class Cardano(Blockchain):
 
         self.faucet = faucet
 
-        genesis = Output(faucet, Value.ADA(supply), None, None)
+        genesis = Output(faucet, Value.ADA(supply), None)
         genesis.ptr = "genesis:0"
         genesis.sequence = -1
 
@@ -261,6 +278,17 @@ class Cardano(Blockchain):
             transaction.status_msg = "already mined"
             return False
         
+        if len(transaction.signatures) != len(transaction.signatories):
+            transaction.status_msg = "invalid signature count"
+            transaction.status = TransactionStatus.FAILED
+            return False
+        
+        for i in range(len(transaction.signatures)):
+            if not transaction.signatories[i].verify(transaction.hash, transaction.signatures[i]):
+                transaction.status_msg = "invalid signature"
+                transaction.status = TransactionStatus.FAILED
+                return False
+            
         
         allocated = Value()
 
@@ -297,6 +325,7 @@ class Cardano(Blockchain):
                     return False
                 
                 output = self.utxo_set[ptr]
+                input.reference = output
                 if output.satisfy(transaction) == False:
                     transaction.status_msg = "input not satisfied: "+ ptr
                     transaction.status = TransactionStatus.FAILED
@@ -328,7 +357,7 @@ class Cardano(Blockchain):
             block = []
             
             if miner != None:
-                tx = self.create_transaction([], [Output(miner, Value.ADA(self.block_reward), None, None)])
+                tx = self.create_transaction([], [Output(miner, Value.ADA(self.block_reward), None)])
                 if self.mine_transaction(tx, check_inputs=False):
                     tx.txnum = len(block)
                     block.append(tx)
@@ -347,7 +376,7 @@ class Cardano(Blockchain):
 
 
     def UTXOs_for_address(self, addr : Address):
-        addr = get_public(addr)
+        addr = Address.get(addr)
         return [ key for key, output in self.utxo_set.items() if output.address == addr]
                 
     

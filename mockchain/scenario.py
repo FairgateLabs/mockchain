@@ -103,11 +103,11 @@ class Scenario:
 
     async def setup_agents(self):
         setup = [agent.setup(self) for agent in self.agents if isinstance(agent, Agent)]
-        await asyncio.gather(*setup)
+        await asyncio.gather(*setup, return_exceptions=True)
         
     async def run_agents(self):
         tasks = [agent.run(self) if isinstance(agent, Agent) else agent(self) for agent in self.agents]
-        await asyncio.gather(*tasks)
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
     async def run(self, block_time=0.001, block_limit: Optional[int] = None):

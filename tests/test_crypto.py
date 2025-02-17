@@ -10,16 +10,14 @@ class TestHash(unittest.TestCase):
 class TestKey(unittest.TestCase):
     def test_create(self):
         k = Key('1')
-        pk = k.public
+        pk = k.get_public()
 
         self.assertEqual(k.name, '1')
-        self.assertEqual(Cryptic.get(k.secret), 's_1')
-        self.assertEqual(Cryptic.get(pk.pubkey), '@1')
         self.assertEqual(pk.pubkey, pow(G, k.secret, N))
 
     def test_sign(self):
         k = Key('1')
-        pk = k.public
+        pk = k.get_public()
         
         msg = 'msg'
         msg2 = 'other message'
@@ -35,14 +33,14 @@ class TestAggregateKey(unittest.TestCase):
         k1 = Key('1')
         k2 = Key('2')
 
-        apk = AggregatePublic('ak', [k1.public, k2.public])
+        apk = AggregatePublic('ak', [k1.get_public(), k2.get_public()])
         self.assertEqual(apk.name, 'ak')
         
     def test_aggregate_signatures(self):
         k1 = Key('1')
         k2 = Key('2')
         msg = 'msg'
-        apk = AggregatePublic('ak', [k1.public, k2.public])
+        apk = AggregatePublic('ak', [k1.get_public(), k2.get_public()])
         s1 = k1.sign(msg)
         s2 = k2.sign(msg)
         ag_sign = apk.aggregate([s1, s2])
@@ -52,14 +50,14 @@ class TestAggregateKey(unittest.TestCase):
 class TestTransferOfOwnership(unittest.TestCase):
     def test_create(self):
         k = [Key(x) for x in ['1','2','3','4'] ]
-        pk = [x.public for x in k]
+        pk = [x.get_public() for x in k]
         too = TransferOfOnwership(pk)
         self.assertEqual(too.n, len(k))
         self.assertEqual(too.k, 2**len(k))
         
     def test_pubkey(self):
         k = [Key(x) for x in ['1','2','3','4'] ]
-        pk = [x.public for x in k]
+        pk = [x.get_public() for x in k]
         too = TransferOfOnwership(pk)
         apk = AggregatePublic('ak', pk)
 

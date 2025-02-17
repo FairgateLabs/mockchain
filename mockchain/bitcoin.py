@@ -1,7 +1,7 @@
 from enum import Enum
-from mockchain.crypto import hash, commit, Key, Public
+from mockchain.crypto import hash, commit, Key, Public, Address
 from typing import List, Optional, Union
-from mockchain.blockchain import User, Address, get_public, Transaction, TransactionStatus, Blockchain 
+from mockchain.blockchain import User, Transaction, TransactionStatus, Blockchain 
 
 
 class Operation:
@@ -17,14 +17,14 @@ class Operation:
     
     @staticmethod
     def check_sig(addr : Address):
-        addr = get_public(addr)
+        addr = Address.get(addr)
 
         return Operation("check_sig", [addr])
     
     @staticmethod
     def check_multisig(addresses, min=1):
         args = [min, len(addresses)]
-        addresses = [ get_public(addr) for addr in addresses]
+        addresses = [ Address.get(addr) for addr in addresses]
 
         args.extend(addresses)
         return Operation("check_multisig", args)
@@ -48,26 +48,21 @@ class Script:
 
     @staticmethod
     def p2pubkey(addr : Address):
-        return Script([Operation.check_sig(get_public(addr))])
+        return Script([Operation.check_sig(Address.get(addr))])
     
     @staticmethod
     def p2timelock(sequence : int, addr : Optional[Address]):
         if addr is None:
             return Script([Operation.timelock(sequence)])
         else:
-            return Script([Operation.check_sig(get_public(addr)), Operation.timelock(sequence)])
+            return Script([Operation.check_sig(Address.get(addr)), Operation.timelock(sequence)])
     
     @staticmethod
-    def p2reveal(hashes : List[str], addr : Optional[Address]):
+    def p2hash(hashes : List[str], addr : Optional[Address]):
         if addr is None:
             return Script([Operation.reveal(hashes)])
-        else:
-            if type(addr) is str:
-                addr = Key.publics[addr]
-            elif type(addr) is User:
-                addr = addr.get_public()
-        
-            return Script([Operation.check_sig(get_public(addr)), Operation.reveal(hashes)])
+        else:          
+            return Script([Operation.check_sig(Address.get(addr)), Operation.reveal(hashes)])
 
 
     def __str__(self):
@@ -76,8 +71,8 @@ class Script:
     def __repr__(self):
         return "{"+" ".join([op.__repr__() for op in self.script])+"}"
     
-    def is_p2pubkey(self, addr : Address):
-        addr = get_public(addr)
+    def is_p2pubkey(self, addr : any):
+        addr = Address.get(addr)
         return len(self.script) == 1 and self.script[0].opcode == "check_sig" and self.script[0].args[0] == addr
     
     def run(self, stack, tx):
@@ -166,8 +161,8 @@ class Output:
     def __repr__(self):
         return "$"+str(self.amount)+" ["+", ".join([str(script) for script in self.scripts])+"]"
 
-    def is_p2pubkey(self, addr : Address):
-        addr = get_public(addr) 
+    def is_p2pubkey(self, addr : any):
+        addr = Address.get(addr) 
 
         for script in self.scripts:
             if script.is_p2pubkey(addr):
@@ -193,8 +188,8 @@ class Input:
     def set_witness(self, witness : List[str]):
         self.witness = witness
 
-    def is_p2pubkey(self, addr : Address):
-        addr = get_public(addr)
+    def is_p2pubkey(self, addr : any):
+        addr = Address.get(addr)
 
         return self.leaf == 0 and self.witness[0] == addr
     
@@ -240,11 +235,15 @@ class BitcoinTransaction(Transaction):
 
         for input in self.inputs:
             if input.ptr not in self.blockchain.utxo_set:
-                raise Exception("input not found")
+                self.status = TransactionStatus.FAILED
+                self.status_msg = "input not found"
+                return False
             
             output = self.blockchain.utxo_set[input.ptr]
             if input.leaf < 0 or input.leaf >= len(output.scripts):
-                raise Exception("invalid leaf")
+                self.status = TransactionStatus.FAILED
+                self.status_msg = "invalid leaf"
+                return False
             
             script = output.scripts[input.leaf]
 
@@ -431,6 +430,10 @@ class Bitcoin(Blockchain):
         tx = self.create_transaction([Input(ptr) for ptr in utxos], [output])
         tx.sign(user)
         return tx
+
+    def show_utxos(self):
+        for utxo in self.utxo_set:
+            print(self.utxo_set[utxo])
 
         
     def __str__(self):

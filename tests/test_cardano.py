@@ -1,6 +1,6 @@
 import unittest
 from mockchain.blockchain import User, TransactionStatus
-from mockchain.cardano import Cardano, Value, ScriptContext, ScriptPurpose
+from mockchain.cardano import Cardano, Value, ScriptContext, ScriptPurpose, Output
 
 
 class TestValue(unittest.TestCase):
@@ -16,7 +16,91 @@ class TestValue(unittest.TestCase):
         value3 = value + value2
         self.assertEqual(value3.value, {"": { "ADA": 300 }})
 
+class TestTransactions(unittest.TestCase):
+    def test_transfer(self):
+        cardano = Cardano()
+        faucet = cardano.faucet
+        alice = User('alice')
+        bob = User('bob')
+
+        tx = cardano.transfer(faucet, alice, 100)
+        cardano.add_transaction(tx)
+        cardano.mine_block()
+        self.assertEqual(tx.status, TransactionStatus.CONFIRMED)
+
+        o2 = Output(bob, Value.ADA(100))
+        tx2 = cardano.create_transaction([tx.outputs[0].ptr], [o2])
+        tx2.sign(bob)
+        cardano.add_transaction(tx2)
+        cardano.mine_block()
+        self.assertEqual(tx2.status, TransactionStatus.FAILED)
+
+
 class TestScripts(unittest.TestCase):
+    def test_pay2script(self):
+        cardano = Cardano()
+        alice = User('alice')
+        bob = User('bob')
+        called = False
+
+        def validation_script(redeemer, context):
+            nonlocal called
+            called = True
+            return True
+        
+        tx1 = cardano.transfer(cardano.faucet, alice, 100)
+
+        o1 = Output(validation_script, 100)
+        tx2 = cardano.create_transaction([tx1.outputs[0].ptr], [o1])
+        tx2.sign(alice)
+
+        o2 = Output(bob, 100)
+        tx3 = cardano.create_transaction([tx2.outputs[0].ptr], [o2])
+
+        cardano.add_transaction(tx1)
+        cardano.add_transaction(tx2)
+        cardano.add_transaction(tx3)
+        cardano.mine_block()
+
+        
+        self.assertTrue(called)
+        
+        self.assertEqual(tx1.status, TransactionStatus.CONFIRMED)
+        self.assertEqual(tx2.status, TransactionStatus.CONFIRMED)
+        self.assertEqual(tx3.status, TransactionStatus.CONFIRMED)
+
+
+    def test_pay2script_fail(self):
+        cardano = Cardano()
+        alice = User('alice')
+        bob = User('bob')
+        called = False
+
+        def validation_script(redeemer, context):
+            nonlocal called
+            called = True
+            return False
+        
+        tx1 = cardano.transfer(cardano.faucet, alice, 100)
+
+        o1 = Output(validation_script, 100)
+        tx2 = cardano.create_transaction([tx1.outputs[0].ptr], [o1])
+        tx2.sign(alice)
+
+        o2 = Output(bob, 100)
+        tx3 = cardano.create_transaction([tx2.outputs[0].ptr], [o2])
+
+        cardano.add_transaction(tx1)
+        cardano.add_transaction(tx2)
+        cardano.add_transaction(tx3)
+        cardano.mine_block()
+
+        self.assertTrue(called)
+        
+        self.assertEqual(tx1.status, TransactionStatus.CONFIRMED)
+        self.assertEqual(tx2.status, TransactionStatus.CONFIRMED)
+        self.assertEqual(tx3.status, TransactionStatus.FAILED)
+
     def test_mint(self):
         cardano = Cardano()
         alice = User('alice')

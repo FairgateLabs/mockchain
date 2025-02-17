@@ -1,32 +1,31 @@
-from mockchain.crypto import Secret, Key
-from typing import Union, List, Callable, Optional
-from mockchain.crypto import Key, Public
+from typing import Callable, Optional
+from mockchain.crypto import Key, Public, Cryptic, hash, Address
 from enum import Enum
 from asyncio import Future
+
 
 class User:
     def __init__(self, name):
         self.name = name
         self.key = Key(name)
-        self.public = self.key.public
-
+        self.public = self.key.get_public()
+        self.address = Address.get(self.public)
+        Cryptic.add("s_"+self.name, self.key.secret)
+        Cryptic.add("p_"+self.name, self.public.pubkey)
+        Cryptic.add("#"+self.name, self.address.value)
+      
     def get_public(self):
         return self.public
+    
+    def get_address(self):
+        return self.address
     
     def sign(self, msg):
         return self.key.sign(msg)
     
 
-Address = Union[str, User, Public]
 
-def get_public(addr : Address ) -> Address:
-    if type(addr) is str:
-        return Key.publics[addr]
-    elif type(addr) is User:
-        return addr.get_public()
-    else:
-        return addr
-
+    
 
 class TransactionStatus(Enum):
     CREATED = "created"
