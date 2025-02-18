@@ -1,7 +1,7 @@
 from enum import Enum
 from mockchain.crypto import hash, commit, Key, Public, Cryptic, Address
 from typing import List, Optional, Union, Dict, Tuple, Callable
-from mockchain.blockchain import User, Transaction, TransactionStatus, Blockchain 
+from mockchain.blockchain import Wallet, Transaction, TransactionStatus, Blockchain 
 
 
 PolicyId = str
@@ -226,7 +226,7 @@ class CardanoTransaction(Transaction):
         self.signatories.append(address)
         self.status = TransactionStatus.SIGNED
         
-    def sign(self, user : User):
+    def sign(self, user : Wallet):
         signature = user.sign(self.hash)
         self.add_signature(signature, user.get_address())
  
@@ -241,12 +241,12 @@ class CardanoTransaction(Transaction):
 
 
 class Cardano(Blockchain):
-    def __init__(self, faucet : User = None, supply : int = 1000000, block_reward : int = 50):
+    def __init__(self, faucet : Wallet = None, supply : int = 1000000, block_reward : int = 50):
         super().__init__()
         
         self.name = "cardano"
         if faucet is None:
-            faucet = User('cardano-faucet')
+            faucet = Wallet('cardano-faucet')
 
         self.faucet = faucet
 
@@ -404,7 +404,7 @@ class Cardano(Blockchain):
         return [ key for key, output in self.utxo_set.items() if output.address == addr]
                 
     
-    def transfer(self, source : User, destination : User, amount : Value | int):
+    def transfer(self, source : Wallet, destination : Wallet, amount : Value | int):
         utxos = self.UTXOs_for_address(source)
         
         if type(amount) is int:
@@ -446,7 +446,7 @@ class Cardano(Blockchain):
 
         return tx
     
-    def sweep(self, user : User):
+    def sweep(self, user : Wallet):
         utxos = self.UTXOs_for_address(user)
         total = sum([self.utxo_set[ptr].value for ptr in utxos])
 

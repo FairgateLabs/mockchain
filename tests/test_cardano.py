@@ -1,5 +1,5 @@
 import unittest
-from mockchain.blockchain import User, TransactionStatus
+from mockchain.blockchain import Wallet, TransactionStatus
 from mockchain.cardano import Cardano, Value, ScriptContext, ScriptPurpose, Output
 
 
@@ -20,8 +20,8 @@ class TestTransactions(unittest.TestCase):
     def test_transfer(self):
         cardano = Cardano()
         faucet = cardano.faucet
-        alice = User('alice')
-        bob = User('bob')
+        alice = Wallet('alice')
+        bob = Wallet('bob')
 
         tx = cardano.transfer(faucet, alice, 100)
         cardano.add_transaction(tx)
@@ -39,8 +39,8 @@ class TestTransactions(unittest.TestCase):
 class TestScripts(unittest.TestCase):
     def test_pay2script(self):
         cardano = Cardano()
-        alice = User('alice')
-        bob = User('bob')
+        alice = Wallet('alice')
+        bob = Wallet('bob')
         called = False
 
         def validation_script(redeemer, context):
@@ -72,8 +72,8 @@ class TestScripts(unittest.TestCase):
 
     def test_pay2script_fail(self):
         cardano = Cardano()
-        alice = User('alice')
-        bob = User('bob')
+        alice = Wallet('alice')
+        bob = Wallet('bob')
         called = False
 
         def validation_script(redeemer, context):
@@ -103,7 +103,7 @@ class TestScripts(unittest.TestCase):
 
     def test_mint(self):
         cardano = Cardano()
-        alice = User('alice')
+        alice = Wallet('alice')
         called = False
 
         def validation_script(redeemer, context):
@@ -127,7 +127,7 @@ class TestScripts(unittest.TestCase):
 
     def test_refuse(self):
         cardano = Cardano()
-        alice = User('alice')
+        alice = Wallet('alice')
         called = False
 
         def validation_script(redeemer, context):
@@ -151,7 +151,7 @@ class TestScripts(unittest.TestCase):
 
     def test_mint1(self):
         cardano = Cardano()
-        alice = User('alice')
+        alice = Wallet('alice')
         called = 0
 
         def validation_script(redeemer, context : ScriptContext):

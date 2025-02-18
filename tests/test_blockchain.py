@@ -1,14 +1,14 @@
 import unittest
 from mockchain.bitcoin import Bitcoin, Output, Input, Script, Address
-from mockchain.blockchain import User, Parameters
+from mockchain.blockchain import Wallet, Parameters
 from asyncio import gather, sleep, Future, Event, run
 import pytest
 
 def bitcoin_fixture():
         bitcoin = Bitcoin()
         faucet = bitcoin.faucet
-        alice = User('alice')
-        bob = User('bob')
+        alice = Wallet('alice')
+        bob = Wallet('bob')
         return bitcoin, faucet, alice, bob
 
 
@@ -109,7 +109,7 @@ class TestParameters(unittest.TestCase):
     def test_bitcoin_transaction(self):
         bitcoin = Bitcoin()
         faucet = bitcoin.faucet
-        alice = User('alice')
+        alice = Wallet('alice')
         param = Parameters()
         v1 = param.var()
         v2 = param.var()

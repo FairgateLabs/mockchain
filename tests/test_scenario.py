@@ -91,13 +91,13 @@ class TestScenario(unittest.TestCase):
         
     
 class TestEndpoints(unittest.TestCase):
-    async def test_send(self):
+    def test_send(self):
         scenario = Scenario([Agent2(), Agent3()])
-        result = scenario.execute(block_time=0, block_limit=50)
+        result = scenario.execute(block_time=0, block_limit=None)
 
         self.assertTrue(result)
 
-    async def test_connect(self):
+    def test_connect(self):
         scenario = Scenario([Agent4(), Agent5()])
         result = scenario.execute(block_time=0, block_limit=None)
 

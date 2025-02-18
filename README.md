@@ -1,12 +1,11 @@
-# mockchain/mockchain/README.md
+# Mockchain README
 
-# MockChain
-
-MockChain is a simple Python library that provides a basic implementation of a blockchain. It allows developers to illustrate ideas by showing how different components will interact.
+Mockchain is a simple Python library that provides a basic implementation of bitcoins. It allows developers to illustrate ideas by showing how different components will interact.
 
 ## Features
-- Simulate a UTXO based blockchain, blocks, transactions and scripts
-- manage cryptography, hash, signatures
+- Simulate bitcoin and cardano bitcoins
+- manage public key cryptography, key aggregation and transfer of ownership protocols
+- Has support for scenarios with simple agent systems
 - manage a vm for disputable computing
 
 ## Installation
@@ -16,16 +15,16 @@ MockChain is a simple Python library that provides a basic implementation of a b
 Here is a simple example of how to use the MockChain library:
 
 ```python
-from mockchain import Blockchain, User
+from mockchain import Bitcoin, Wallet
 
 # Create a new instance of MockChain
-blockchain = Blockhain()
-alice = User('alice')
-faucet = blockchain.faucet
-tx = blockchain.transfer(faucet, alice, 100)
-blockchain.add_transaction(tx)
-blockchain.mine_block()
-print(tx.hash, tx.status, blockchain.utxo)
+bitcoin = Bitcoin()
+alice = Wallet('alice')
+faucet = bitcoin.faucet
+tx = bitcoin.transfer(faucet, alice, 100)
+bitcoin.add_transaction(tx)
+bitcoin.mine_block()
+bitcoin.print()
 ```
 
 ## Contributing

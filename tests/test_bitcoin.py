@@ -1,13 +1,13 @@
 import unittest
 from mockchain.bitcoin import Bitcoin, Output, Input, Script
-from mockchain.blockchain import User, TransactionStatus
+from mockchain.blockchain import Wallet, TransactionStatus
 
 
 class TestBitcoin(unittest.TestCase):
     def test_transfer(self):
         blockchain = Bitcoin()
         faucet = blockchain.faucet
-        alice = User('alice')
+        alice = Wallet('alice')
 
         tx = blockchain.transfer(faucet, alice, 1000)
         blockchain.add_transaction(tx)
@@ -23,8 +23,8 @@ class TestBitcoin(unittest.TestCase):
     def test_double_spend(self):
         blockchain = Bitcoin()
         faucet = blockchain.faucet
-        alice = User('alice')
-        bob = User('bob')
+        alice = Wallet('alice')
+        bob = Wallet('bob')
 
         tx = blockchain.transfer(faucet, alice, 1)
         blockchain.add_transaction(tx)
@@ -57,7 +57,7 @@ class TestOrdinals(unittest.TestCase):
 
     def test_reward(self):
         blockchain = Bitcoin(supply=100)
-        alice=User("alice")
+        alice=Wallet("alice")
         blockchain.mine_block(miner=alice)
         outputs = blockchain.UTXOs_for_address(alice)
         self.assertEqual(len(outputs), 1)
@@ -66,8 +66,8 @@ class TestOrdinals(unittest.TestCase):
 
     def test_split(self):
         blockchain = Bitcoin(supply=100)
-        alice=User("alice")
-        bob=User('bob')
+        alice=Wallet("alice")
+        bob=Wallet('bob')
 
         blockchain.mine_block(miner=alice)
         inputs = blockchain.UTXOs_for_address(alice)

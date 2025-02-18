@@ -4,7 +4,7 @@ from enum import Enum
 from asyncio import Future
 
 
-class User:
+class Wallet:
     def __init__(self, name):
         self.name = name
         self.key = Key(name)
@@ -100,10 +100,10 @@ class Blockchain:
     def add_transaction(self, transaction : Transaction):
         pass
 
-    def transfer(self, source : User, destination : User, amount : int) -> Transaction:
+    def transfer(self, source : Wallet, destination : Wallet, amount : int) -> Transaction:
         pass
 
-    def sweep(self, user : User) -> Transaction:
+    def sweep(self, user : Wallet) -> Transaction:
         pass
 
     def create_transaction(self) -> Transaction:

@@ -1,4 +1,4 @@
-from mockchain.blockchain import Blockchain, User
+from mockchain.blockchain import Blockchain, Wallet
 from mockchain.bitcoin import Bitcoin
 from mockchain.cardano import Cardano
 from typing import List, Optional, Callable
@@ -13,7 +13,7 @@ class Agent:
             Agent.cnt += 1
 
         self.name = name
-        self.wallet = User(name)
+        self.wallet = Wallet(name)
 
     async def setup(self, scenario):
         pass
@@ -41,12 +41,13 @@ class Scenario:
 
         self.blockchains = blockchains
         self.faucet = blockchains[0].faucet
-        self.alice = User('alice')
-        self.bob = User('bob') 
-        self.carol = User('carol')
+        self.alice = Wallet('alice')
+        self.bob = Wallet('bob') 
+        self.carol = Wallet('carol')
         self.agents = agents
         self.block_limit = None
         self.endpoints = {}
+       
 
         for blockchain in self.blockchains:
             self.__setattr__(blockchain.name, blockchain)
@@ -65,7 +66,7 @@ class Scenario:
                 blockchain.add_transaction(tx)
                 blockchain.mine_block()
                 
-        
+        self.status = "initialized" 
 
     def listen(self, host: str, service : str, callback : Callable): 
         url = get_url(host, service)
@@ -124,31 +125,55 @@ class Scenario:
         blockchains_task = asyncio.create_task(self.run_blockchains(block_limit))
         setup_task = asyncio.create_task(self.setup_agents())
 
+        self.status = "running setup"
         await asyncio.wait([blockchains_task, setup_task], return_when=asyncio.FIRST_COMPLETED)
 
         for task in [blockchains_task, setup_task]:
             e = task.exception() if task.done() else None
             if e is not None:
+                self.status = "exception during setup"
                 raise e
             
         if blockchains_task.done():
             setup_task.cancel()
+            self.status = "blockchain limit reached during setup"
             return False
         
+        self.status = "running agents"
+
         run_task = asyncio.create_task(self.run_agents())
         complete, incomplete = await asyncio.wait([blockchains_task, run_task], return_when=asyncio.FIRST_COMPLETED)
         
-        for task in [blockchains_task, run_task]:
-            e = task.exception() if task.done() else None
-            if e is not None:
-                raise e
+        done_blockchains = blockchains_task.done()
+        done_run = run_task.done()
+
+        if len(incomplete) > 0:
+            for task in incomplete:
+                task.cancel()
+
+            try:
+                await asyncio.wait(incomplete, return_when=asyncio.ALL_COMPLETED)
+            except asyncio.CancelledError:
+                pass   
             
-        for task in incomplete:
-            task.cancel()
 
-        self.result = run_task in complete
+        for task in complete:
+            e = task.exception() if task.done() else None
+            if e is not None and e is not asyncio.CancelledError:
+                
+                self.status = "exception during run"
+                self.result = False
+                raise e
 
-        return run_task in complete
+
+        if done_blockchains:
+            self.status = "blockchain limit reached during run"
+            self.result = False
+            return
+
+        self.result = done_run
+
+        return done_run
 
     def execute(self, *args, **kwargs):
         loop = asyncio.new_event_loop()

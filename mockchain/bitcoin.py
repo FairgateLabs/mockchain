@@ -1,7 +1,7 @@
 from enum import Enum
 from mockchain.crypto import hash, commit, Key, Public, Address, Cryptic
 from typing import List, Optional, Union
-from mockchain.blockchain import User, Transaction, TransactionStatus, Blockchain , Parameters
+from mockchain.blockchain import Wallet, Transaction, TransactionStatus, Blockchain , Parameters
 
 
 class Operation:
@@ -302,18 +302,18 @@ class BitcoinTransaction(Transaction):
 
         return satisfied
 
-    def sign(self, user : User):
+    def sign(self, user : Wallet):
         signature = user.sign(self.hash)
         return self.add_signature(user, signature)
 
 class Bitcoin(Blockchain):
-    def __init__(self, faucet : User = None, supply : int = 1000000, block_reward : int = 50):
+    def __init__(self, faucet : Wallet = None, supply : int = 1000000, block_reward : int = 50):
         super().__init__()
 
         self.name = "bitcoin"
 
         if faucet is None:
-            faucet = User('faucet')
+            faucet = Wallet('faucet')
 
         self.faucet = faucet
 
@@ -458,7 +458,7 @@ class Bitcoin(Blockchain):
         return [ key for key, output in self.utxo_set.items() if output.is_p2pubkey(addr)]
                 
     
-    def transfer(self, source : User, destination : User, amount : int):
+    def transfer(self, source : Wallet, destination : Wallet, amount : int):
         utxos = self.UTXOs_for_address(source)
         
         inputs = []
@@ -481,7 +481,7 @@ class Bitcoin(Blockchain):
         tx.sign(source)
         return tx
     
-    def sweep(self, user : User):
+    def sweep(self, user : Wallet):
         utxos = self.UTXOs_for_address(user)
         total = sum([self.utxo_set[ptr].amount for ptr in utxos])
 
