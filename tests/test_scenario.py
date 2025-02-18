@@ -54,6 +54,10 @@ class Agent4(Agent):
         self.result = await self.send("agent5", "pong", "hello")
         
 
+async def agent_raise(scenario):
+    await sleep(0.01)
+    print("hola")
+    raise Exception("Error")
     
 class Agent5(Agent):
     async def run(self, scenario):
@@ -67,29 +71,35 @@ class Agent5(Agent):
         self.signal.set() 
         return 42
 
-class TestScenario(unittest.IsolatedAsyncioTestCase):
-    async def test_blockchains(self):
+class TestScenario(unittest.TestCase):
+    def test_blockchains(self):
         scenario = Scenario([agent0, Agent1()])
-        result = await scenario.run(block_time=0, block_limit=50)
+        result = scenario.execute(block_time=0, block_limit=50)
 
         self.assertTrue(result)
 
-    async def test_timeout(self):     
+    def test_timeout(self):     
         scenario = Scenario([agent0])
-        result = await scenario.run(block_limit=50)
+        result = scenario.execute(block_limit=50)
 
         self.assertFalse(result)
 
-class TestEndpoints(unittest.IsolatedAsyncioTestCase):
+    def test_exception(self):
+        scenario = Scenario([agent_raise])
+        with self.assertRaises(Exception):
+            scenario.execute(block_time=0.01, block_limit=50)
+        
+    
+class TestEndpoints(unittest.TestCase):
     async def test_send(self):
         scenario = Scenario([Agent2(), Agent3()])
-        result = await scenario.run(block_time=0, block_limit=50)
+        result = scenario.execute(block_time=0, block_limit=50)
 
         self.assertTrue(result)
 
     async def test_connect(self):
         scenario = Scenario([Agent4(), Agent5()])
-        result = await scenario.run(block_time=0, block_limit=None)
+        result = scenario.execute(block_time=0, block_limit=None)
 
         self.assertTrue(result)
         self.assertEqual(scenario.agents[0].result, 42)

@@ -55,7 +55,7 @@ class Scenario:
         for agent in agents:
             if not isinstance(agent, Agent):
                 continue
-            
+
             agent.scenario = self
 
             for blockchain in self.blockchains:
@@ -108,12 +108,14 @@ class Scenario:
 
     async def setup_agents(self):
         setup = [agent.setup(self) for agent in self.agents if isinstance(agent, Agent)]
-        await asyncio.gather(*setup, return_exceptions=True)
+        if len(setup) > 0:
+            await asyncio.gather(*setup)
 
 
     async def run_agents(self):
         tasks = [agent.run(self) if isinstance(agent, Agent) else agent(self) for agent in self.agents]
-        await asyncio.gather(*tasks, return_exceptions=True)
+        if len(tasks) > 0:
+            await asyncio.gather(*tasks)
 
 
     async def run(self, block_time=0.001, block_limit: Optional[int] = None):
@@ -124,6 +126,11 @@ class Scenario:
 
         await asyncio.wait([blockchains_task, setup_task], return_when=asyncio.FIRST_COMPLETED)
 
+        for task in [blockchains_task, setup_task]:
+            e = task.exception() if task.done() else None
+            if e is not None:
+                raise e
+            
         if blockchains_task.done():
             setup_task.cancel()
             return False
@@ -131,6 +138,11 @@ class Scenario:
         run_task = asyncio.create_task(self.run_agents())
         complete, incomplete = await asyncio.wait([blockchains_task, run_task], return_when=asyncio.FIRST_COMPLETED)
         
+        for task in [blockchains_task, run_task]:
+            e = task.exception() if task.done() else None
+            if e is not None:
+                raise e
+            
         for task in incomplete:
             task.cancel()
 
@@ -138,6 +150,9 @@ class Scenario:
 
         return run_task in complete
 
-    def execute(self):
-        asyncio.run(self.run())
+    def execute(self, *args, **kwargs):
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(self.run(*args, **kwargs))
+        loop.close()
+
         return self.result
