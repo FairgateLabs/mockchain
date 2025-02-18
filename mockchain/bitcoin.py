@@ -1,7 +1,7 @@
 from enum import Enum
 from mockchain.crypto import hash, commit, Key, Public, Address, Cryptic
 from typing import List, Optional, Union
-from mockchain.blockchain import User, Transaction, TransactionStatus, Blockchain 
+from mockchain.blockchain import User, Transaction, TransactionStatus, Blockchain , Parameters
 
 
 class Operation:
@@ -10,21 +10,25 @@ class Operation:
         self.args = args
 
     def __str__(self):
-        return self.opcode + "(" + ", ".join([str(arg) for arg in self.args]) + ")"
+        return self.opcode + "(" + ", ".join([Cryptic.get(arg) for arg in self.args]) + ")"
     
     def __repr__(self):
-        return self.opcode + "(" + ", ".join([str(arg) for arg in self.args]) + ")"
+        return self.opcode + "(" + ", ".join([Cryptic.get(arg) for arg in self.args]) + ")"
+    
+    def apply(self, param : Parameters):
+        args = [param.apply(arg) for arg in self.args]
+        return Operation(self.opcode, args)
     
     @staticmethod
     def check_sig(addr : Address):
-        addr = Address.get(addr)
+        addr = Address.get_str(addr)
 
         return Operation("check_sig", [addr])
     
     @staticmethod
     def check_multisig(addresses, min=1):
         args = [min, len(addresses)]
-        addresses = [ Address.get(addr) for addr in addresses]
+        addresses = [ Address.get_str(addr) for addr in addresses]
 
         args.extend(addresses)
         return Operation("check_multisig", args)
@@ -45,24 +49,32 @@ class Operation:
 class Script:
     def __init__(self, script : List[Operation]):
         self.script = script
-
+        
+    def copy(self):
+        return Script(self.script)
+    
+    def apply(self, param : Parameters):
+        script = [op.apply(param) for op in self.script]
+        return Script(script)
+    
+    
     @staticmethod
     def p2pubkey(addr : Address):
-        return Script([Operation.check_sig(Address.get(addr))])
+        return Script([Operation.check_sig(Address.get_str(addr))])
     
     @staticmethod
     def p2timelock(sequence : int, addr : Optional[Address]):
         if addr is None:
             return Script([Operation.timelock(sequence)])
         else:
-            return Script([Operation.check_sig(Address.get(addr)), Operation.timelock(sequence)])
+            return Script([Operation.check_sig(Address.get_str(addr)), Operation.timelock(sequence)])
     
     @staticmethod
     def p2hash(hashes : List[str], addr : Optional[Address]):
         if addr is None:
             return Script([Operation.reveal(hashes)])
         else:          
-            return Script([Operation.check_sig(Address.get(addr)), Operation.reveal(hashes)])
+            return Script([Operation.check_sig(Address.get_str(addr)), Operation.reveal(hashes)])
 
 
     def __str__(self):
@@ -72,17 +84,15 @@ class Script:
         return "{"+" ".join([op.__repr__() for op in self.script])+"}"
     
     def is_p2pubkey(self, addr : any):
-        addr = Address.get(addr)
+        addr = Address.get_str(addr)
         return len(self.script) == 1 and self.script[0].opcode == "check_sig" and self.script[0].args[0] == addr
     
     def run(self, stack, tx):
         for op in self.script:
             if op.opcode == "check_sig":
                 sig = stack.pop(0)
-                pubkey = op.args[0]
-                if pubkey is str:
-                    pubkey = Public.publics[pubkey]
-
+                pubkey = Address.get(op.args[0])
+            
                 if pubkey.verify(tx.hash, sig) == False:
                     return False
                 
@@ -155,6 +165,14 @@ class Output:
         self.hash = hash(str(self))
         self.ordinal = None
     
+    def copy(self):
+        scripts = [script.copy() for script in self.scripts]
+        return Output(self.amount, scripts)
+    
+    def apply(self, param : Parameters):
+        scripts = [script.apply(param) for script in self.scripts]
+        return Output(param.apply(self.amount), scripts)
+
     def __str__(self):
         return "$"+str(self.amount)+" ["+", ".join([str(script) for script in self.scripts])+"]"
 
@@ -181,6 +199,12 @@ class Output:
 
 class Input:
     def __init__(self, ptr : str, leaf : int = 0):
+        if isinstance(ptr, Output):
+            ptr = ptr.ptr
+        
+        if not isinstance(ptr, str):
+            raise Exception("Invalid ptr, expepted str")
+        
         self.ptr = ptr
         self.leaf = leaf
         self.witness = [] 
@@ -193,6 +217,14 @@ class Input:
 
         return self.leaf == 0 and self.witness[0] == addr
     
+    def copy(self):
+        return Input(self.ptr, self.leaf)
+    
+    def apply(self, param : Parameters):
+        ptr = self.ptr.split(":")
+        ptr = param.apply(ptr[0])+":"+param.apply(ptr[1])
+
+        return Input(ptr, self.leaf)
 
     def __str__(self):
         ptr = self.ptr
@@ -222,9 +254,19 @@ class BitcoinTransaction(Transaction):
         self.outputs = outputs
         self.status = TransactionStatus.CREATED
 
-        txdata = ",".join([input.ptr for input in inputs]) + " -> " + ",".join([str(output.amount)+":"+output.hash for output in outputs])
+        self.calculate_hash()
+        
+    def apply(self, param : Parameters):
+        inputs = [input.apply(param) for input in self.inputs]
+        outputs = [output.apply(param) for output in self.outputs]
+        return BitcoinTransaction(self.blockchain, inputs, outputs)
+        
+
+    def calculate_hash(self):
+        txdata = ",".join([input.ptr for input in self.inputs]) + " -> " + ",".join([str(output.amount)+":"+output.hash for output in self.outputs])
         self.hash = hash(str(txdata))
     
+
     def __str__(self):
         return Cryptic.get(self.hash) + " ["+", ".join(Cryptic.get(input.ptr) for input in self.inputs)+"] -> ["+", ".join([str(output) for output in self.outputs])+"] ("+self.status.value+")"
     

@@ -113,6 +113,13 @@ class Public:
 class Address:
     cache = {}
 
+    @staticmethod 
+    def get_str(source) -> str:
+        if isinstance(source, str):
+            return source
+        
+        return Address.get(source).value
+    
     @staticmethod
     def get(source) -> "Address":
         if type(source) is int:
