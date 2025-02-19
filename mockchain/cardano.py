@@ -183,7 +183,7 @@ class Input:
 
 
 class CardanoTransaction(Transaction):
-    def __init__(self, blockchain : "Cardano", inputs : List[Input|str], outputs : List[Output], reference_inputs: List[Input|str] = None, mint: Value = None):
+    def __init__(self, blockchain : "Cardano", inputs : List[Input|str], outputs : List[Output], reference_inputs: List[Input|str] = None, mint: Value = None, metadata : Dict = None):
         inputs = [input if type(input) is Input else Input(input) for input in inputs]
  
         for output in outputs:
@@ -206,6 +206,9 @@ class CardanoTransaction(Transaction):
         self.signatories = []
         self.redeemers = {}
         self.status = TransactionStatus.CREATED
+
+        # TODO check if this is correct
+        self.metadata = metadata if metadata else {}
 
         txdata = ",".join([input.ptr for input in self.inputs]) + ") -> (" + ",".join([str(output) for output in self.outputs]) 
         self.hash = hash(str(txdata))
@@ -238,7 +241,11 @@ class CardanoTransaction(Transaction):
     def set_redeemer(self, policy : PolicyId, redeemer):
         self.redeemers[policy] = redeemer
     
+    def add_metadata(self, key: str, value: Union[str, dict, list]):
+        self.metadata[key] = value
 
+    def get_metadata(self, key: str):
+        return self.metadata.get(key, None)
 
 class Cardano(Blockchain):
     def __init__(self, faucet : Wallet = None, supply : int = 1000000, block_reward : int = 50):
@@ -281,8 +288,8 @@ class Cardano(Blockchain):
     def create_transaction(self, inputs : List[Input|str], outputs : List[Output], reference_inputs : List[Input|str] = None, mint : Value = None):
         return CardanoTransaction(self, inputs, outputs, reference_inputs, mint)
     
-    def create_mint_transaction(self, mint : Value, destination : Address):
-        return CardanoTransaction(self, [], [Output(destination, mint)], mint=mint)
+    def create_mint_transaction(self, mint : Value, destination : Address, metadata : Dict = None):
+        return CardanoTransaction(self, [], [Output(destination, mint)], mint=mint, metadata=metadata)
     
     def add_transaction(self, transaction : CardanoTransaction, name : Optional[str] = None):
         if name is None:

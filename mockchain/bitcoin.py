@@ -103,8 +103,18 @@ class Script:
     
     def is_p2pubkey(self, addr : any):
         addr = Address.get_str(addr)
-        return len(self.script) == 1 and self.script[0].opcode == "check_sig" and self.script[0].args[0] == addr
+
+        if len(self.script) == 1 and self.script[0].opcode == "check_sig" and self.script[0].args[0] == addr:
+            return True
+        
+        if len(self.script) == 2 and self.script[0].opcode == "check_sig" and self.script[1].opcode == "timelock" and self.script[0].args[0] == addr:
+            return True
+        
+        return False
     
+    def is_p2timelock(self):
+        return any(op.opcode == "timelock" for op in self.script)
+
     def run(self, stack, tx):
         for op in self.script:
             if op.opcode == "check_sig":
@@ -544,6 +554,8 @@ class Bitcoin(Blockchain):
             end = block_height+1
 
         for i in range(start, end):
+            if self.blocks[i] == []:
+                continue
             print(f"Bitcoin Block {i} -----------------------------------------")
             for tx in self.blocks[i]:
                 print(f"  {tx}")
