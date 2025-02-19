@@ -151,9 +151,7 @@ class Address:
             address = Address(source)
             Address.cache[source.pubkey] = address
             return address
-        
-        
-        
+   
         raise Exception("Invalid address source")
     
     def verify(self, msg, signature):
@@ -162,7 +160,7 @@ class Address:
         
         return self.public.verify(msg, signature)
     
-    def __init__(self, source : Public|Script):
+    def __init__(self, source : Public|Callable):
         if isinstance(source,Public):
             self.public = source
             self.value = hash("public+"+hex(source.pubkey))
@@ -221,12 +219,12 @@ def commit(msg):
 
 
 class Commitment:
-    commitments = {}
-
     @staticmethod
     def commit(msg):
-        Commitment.commitments[msg] = "h_"+msg
-        return "h_"+msg
+        commitment = hash(msg)
+        Cryptic.add("h_"+msg, commitment)
+
+        return commitment
 
 class TransferOfOnwership:
     def __init__(self, publics : List[Public]):

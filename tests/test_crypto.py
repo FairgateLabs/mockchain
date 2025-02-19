@@ -72,9 +72,9 @@ class TestCommit(unittest.TestCase):
         m2 = "goodbye"
         h1 = commit(m1)
         h2 = commit(m2)
-
-        self.assertEqual(h1, "h_hello")
-        self.assertEqual(h2, "h_goodbye")
+        
+        self.assertEqual(h1, hash(m1))
+        self.assertEqual(h2, hash(m2))
         self.assertNotEqual(h1, h2)
 
 if __name__ == '__main__':
