@@ -32,17 +32,20 @@ class TestBlockchain(unittest.IsolatedAsyncioTestCase):
         result = await gather(wait_for_block(), mine_blocks())
         self.assertTrue(result)
 
-    async def test_wait_for_transaction(self):
+    
+    
+    async def test_wait_for_utxo(self):
         bitcoin, faucet, alice, bob = bitcoin_fixture()
         
         tx = bitcoin.transfer(bitcoin.faucet, alice, 1000)
         bitcoin.add_transaction(tx)
         bitcoin.mine_block()
         
+        utxo = tx.outputs[0].ptr
         tx2 = bitcoin.transfer(alice, bob, 500)
         
         async def wait_for_tx():
-            return await bitcoin.wait_for_transaction(tx2, min_height = 0)
+            return await bitcoin.wait_for_utxo(utxo, min_height = 0)
         
         async def mine_block():
             for i in range(10):
@@ -56,7 +59,9 @@ class TestBlockchain(unittest.IsolatedAsyncioTestCase):
             return True
         
         result = await gather(wait_for_tx(), mine_block())
-        self.assertTrue(result)
+        tx2b = result[0]
+        
+        self.assertEqual(tx2b, tx2)
 
     async def test_wait_for_transaction_hash_max_blocks(self):
         bitcoin, faucet, alice, bob = bitcoin_fixture()

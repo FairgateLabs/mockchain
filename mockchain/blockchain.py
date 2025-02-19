@@ -92,6 +92,16 @@ class Blockchain:
             
         return False
 
+
+    async def wait_for_utxo(self, ptr : str | set[str], min_height : Optional[int] = None, max_blocks : Optional[int] = None):
+        if isinstance(ptr, str):
+            ptr = set({ptr})
+
+        async for tx in self.transaction_iterator(min_height=min_height, max_blocks=max_blocks):
+            for input in tx.inputs:
+                if input.ptr in ptr:
+                    return tx
+
     async def wait_for_transaction_hash(self, hash : str | set[str], min_height : Optional[int] = None, max_blocks : Optional[int]=None):
         if type(hash) is str:
             hash = {hash}
