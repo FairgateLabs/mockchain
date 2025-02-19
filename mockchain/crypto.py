@@ -25,8 +25,8 @@ class Cryptic:
     @staticmethod
     def get(value):
         if value in Cryptic.names:
-            return Cryptic.names[value]
-        return value
+            return str(Cryptic.names[value])
+        return str(value)
     
 
 class Secret:

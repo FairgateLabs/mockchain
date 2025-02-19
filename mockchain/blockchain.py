@@ -25,58 +25,6 @@ class Wallet:
     
 
 
-
-class Parameters:
-    def __init__(self, prefix : str = "$$"):
-        self.data = {}
-        self.vars = set()
-        self.cnt = 0
-        self.prefix = prefix
-
-    def apply(self, obj : any):
-        if isinstance(obj, int):
-            return obj
-        elif isinstance(obj, str):
-            if obj.startswith(self.prefix) and obj in self.vars:
-                return self[obj]    
-            return obj
-        elif isinstance(obj, list):
-            return [self.apply(x) for x in obj]
-        
-        return obj.apply(self)
-
-
-    def var(self, var : Optional[str] = None):
-        if var is None:
-            var = "var"+str(self.cnt)
-            self.cnt += 1
-
-        if not var.startswith(self.prefix):
-            var = self.prefix+var
-
-        if var not in self.vars:
-            self.vars.add(var)
-
-        return var
-
-    def __setitem__(self, key : str, value : any):
-        if not key.startswith(self.prefix):
-            key = self.prefix+key
-
-        self.data[key] = value
-
-    def __getitem__(self, key):
-        if not key.startswith(self.prefix):
-            key = self.prefix+key
-        
-        return self.data[key]
-    
-    def __contains__(self, key):
-        if not key.startswith(self.prefix):
-            key = self.prefix+key
-
-        return key in self.vars
-    
     
 
 class TransactionStatus(Enum):

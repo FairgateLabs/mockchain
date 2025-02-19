@@ -1,13 +1,19 @@
 from enum import Enum
 from mockchain.crypto import hash, commit, Key, Public, Address, Cryptic
-from typing import List, Optional, Union
-from mockchain.blockchain import Wallet, Transaction, TransactionStatus, Blockchain , Parameters
+from typing import List, Optional, Union, Dict
+from mockchain.blockchain import Wallet, Transaction, TransactionStatus, Blockchain
 
 
 class Operation:
     def __init__(self, opcode : str, args : List[str]):
         self.opcode = opcode
         self.args = args
+        self.parametric = False
+        
+        for arg in args:
+            if isinstance(arg, str) and arg.startswith("$"):
+                self.parametric = True
+                break
 
     def __str__(self):
         return self.opcode + "(" + ", ".join([Cryptic.get(arg) for arg in self.args]) + ")"
@@ -15,8 +21,11 @@ class Operation:
     def __repr__(self):
         return self.opcode + "(" + ", ".join([Cryptic.get(arg) for arg in self.args]) + ")"
     
-    def apply(self, param : Parameters):
-        args = [param.apply(arg) for arg in self.args]
+    def apply(self, protocol):
+        if not self.parametric:
+            return self
+        
+        args = [protocol.get(arg) for arg in self.args]
         return Operation(self.opcode, args)
     
     @staticmethod
@@ -49,12 +58,21 @@ class Operation:
 class Script:
     def __init__(self, script : List[Operation]):
         self.script = script
+        self.parametric = False
+        for op in script:
+            if op.parametric:
+                self.parametric = True
+                break
+
         
     def copy(self):
         return Script(self.script)
     
-    def apply(self, param : Parameters):
-        script = [op.apply(param) for op in self.script]
+    def apply(self, protocol):
+        if not self.parametric:
+            return self
+        
+        script = [op.apply(protocol) for op in self.script]
         return Script(script)
     
     
@@ -162,16 +180,28 @@ class Output:
         self.amount = amount
         self.scripts = scripts
         self.sequence = 0
-        self.hash = hash(str(self))
+        self.hash = ""
         self.ordinal = None
+        self.parametric = False
+
+        for script in scripts:
+            if script.parametric:
+                self.parametric = True
+                break
+
+        if isinstance(amount, str) and amount.startswith("$"):
+            self.parametric = True
     
     def copy(self):
         scripts = [script.copy() for script in self.scripts]
         return Output(self.amount, scripts)
     
-    def apply(self, param : Parameters):
-        scripts = [script.apply(param) for script in self.scripts]
-        return Output(param.apply(self.amount), scripts)
+    def apply(self, protocol):
+        if not self.parametric:
+            return Output(self.amount, self.scripts)
+        
+        scripts = [script.apply(protocol) for script in self.scripts]
+        return Output(protocol.get(self.amount), scripts)
 
     def __str__(self):
         return "$"+str(self.amount)+" ["+", ".join([str(script) for script in self.scripts])+"]"
@@ -180,7 +210,7 @@ class Output:
         return "$"+str(self.amount)+" ["+", ".join([str(script) for script in self.scripts])+"]"
 
     def is_p2pubkey(self, addr : any):
-        addr = Address.get(addr) 
+        addr = Address.get_str(addr) 
 
         for script in self.scripts:
             if script.is_p2pubkey(addr):
@@ -200,14 +230,15 @@ class Output:
 class Input:
     def __init__(self, ptr : str, leaf : int = 0):
         if isinstance(ptr, Output):
-            ptr = ptr.ptr
+            ptr = ptr.hash
         
         if not isinstance(ptr, str):
-            raise Exception("Invalid ptr, expepted str")
+            raise Exception("Invalid ptr, expected str")
         
         self.ptr = ptr
         self.leaf = leaf
         self.witness = [] 
+        self.parametric = ptr.startswith("$")
 
     def set_witness(self, witness : List[str]):
         self.witness = witness
@@ -220,9 +251,15 @@ class Input:
     def copy(self):
         return Input(self.ptr, self.leaf)
     
-    def apply(self, param : Parameters):
+    def apply(self, protocol ):
+        if not self.parametric:
+            return self
+        
         ptr = self.ptr.split(":")
-        ptr = param.apply(ptr[0])+":"+param.apply(ptr[1])
+        if len(ptr) == 1:
+            ptr = protocol.get(ptr[0])
+        else:
+            ptr = protocol.get(ptr[0])+":"+protocol.get(ptr[1])
 
         return Input(ptr, self.leaf)
 
@@ -243,6 +280,12 @@ class Input:
 
 class BitcoinTransaction(Transaction):
     def __init__(self, blockchain : "Bitcoin", inputs : List[Input|str], outputs : List[Output]):
+        if not isinstance(inputs, list):
+            inputs = [inputs]
+
+        if not isinstance(outputs, list):
+            outputs = [outputs]
+
         inputs = [input if type(input) is Input else Input(input) for input in inputs]
 
         for output in outputs:
@@ -256,15 +299,18 @@ class BitcoinTransaction(Transaction):
 
         self.calculate_hash()
         
-    def apply(self, param : Parameters):
-        inputs = [input.apply(param) for input in self.inputs]
-        outputs = [output.apply(param) for output in self.outputs]
+    def apply(self, protocol):
+        inputs = [input.apply(protocol) for input in self.inputs]
+        outputs = [output.apply(protocol) for output in self.outputs]
         return BitcoinTransaction(self.blockchain, inputs, outputs)
         
 
     def calculate_hash(self):
         txdata = ",".join([input.ptr for input in self.inputs]) + " -> " + ",".join([str(output.amount)+":"+output.hash for output in self.outputs])
         self.hash = hash(str(txdata))
+
+        for i in range(len(self.outputs)):
+            self.outputs[i].hash = self.hash+":"+str(i)
     
 
     def __str__(self):
@@ -357,8 +403,7 @@ class Bitcoin(Blockchain):
         if transaction.status == TransactionStatus.CONFIRMED:
             transaction.status_msg = "already mined"
             return False
-        
-        
+           
         allocated = sum([output.amount for output in transaction.outputs])
         amount = 0
         ordinals = []

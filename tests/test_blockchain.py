@@ -1,6 +1,6 @@
 import unittest
 from mockchain.bitcoin import Bitcoin, Output, Input, Script, Address
-from mockchain.blockchain import Wallet, Parameters
+from mockchain.blockchain import Wallet
 from asyncio import gather, sleep, Future, Event, run
 import pytest
 
@@ -83,44 +83,3 @@ class TestBlockchain(unittest.IsolatedAsyncioTestCase):
         
         result = await gather(wait_for_tx(), mine_block())
         self.assertFalse(result[0])
-
-class TestParameters(unittest.TestCase):
-    def test_create(self):
-        param = Parameters()
-        v1 = param.var()
-        v2 = param.var()
-        v3 = param.var("hello")
-
-        self.assertEqual(v1, "$$var0")
-        self.assertEqual(v2, "$$var1")
-        self.assertEqual(v3, "$$hello")
-
-        param[v1] = "hello"
-        param[v2] = "world"
-        param[v3] = 18
-
-        self.assertEqual(param[v1], "hello")
-        self.assertEqual(param[v2], "world")
-        self.assertEqual(param[v3], 18)
-        self.assertEqual(param.apply("$$var0"), "hello")
-        self.assertEqual(param.apply("$$var1"), "world")
-        self.assertEqual(param.apply("hola mundo"), "hola mundo")
-      
-    def test_bitcoin_transaction(self):
-        bitcoin = Bitcoin()
-        faucet = bitcoin.faucet
-        alice = Wallet('alice')
-        param = Parameters()
-        v1 = param.var()
-        v2 = param.var()
-
-        inputs = bitcoin.UTXOs_for_address(faucet)
-        tx1 = bitcoin.create_transaction(inputs, [Output(v2, Script.p2pubkey(v1))])
-
-        param[v1] = Address.get_str(alice)
-        param[v2] = 1000
-
-        tx1x = param.apply(tx1)
-        self.assertTrue(tx1x.outputs[0].is_p2pubkey(alice))
-        self.assertEqual(tx1x.outputs[0].amount, 1000)
-
