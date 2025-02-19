@@ -1,6 +1,7 @@
 import inspect
+import textwrap
 import sys
-from mockchain.crypto import hash
+from mockchain.crypto import hash, Address, Cryptic
 
 def env_to_string(env):
     res = ""
@@ -22,27 +23,63 @@ def env_to_string(env):
     res += "}"
     return res
 
-class Program:
-    def __init__(self, functions):
-        if not isinstance(functions, list):
-            functions = [functions]
 
-        self.sources = "\n".join([inspect.getsource(f) for f in functions])
-        self.target_function = functions[-1].__name__
+
+class Program:
+    cache = {}
+
+    @staticmethod
+    def address(*functions, **globals):
+        sources = "\n".join([inspect.getsource(f) for f in functions])
+        target_function = functions[0].__name__
+        
+        codehash = hash(sources + "\n" + str(globals))
+
+        if not codehash in Address.cache:
+            Cryptic.add(codehash, target_function)
+            p = Program(sources, target_function, codehash, globals)
+            address = Address(p, codehash, True)
+
+            Address.cache[codehash] = address
+
+        return Address.cache[codehash]
+    
+    @staticmethod
+    def get(codehash : str):
+        if codehash in Address.cache:
+            return Address.cache[codehash].program
+        
+        return None
+    
+    @staticmethod
+    def call(codehash : str, *args, **kwargs):
+        p = Program.get(codehash)
+        if p is None:
+            raise Exception(f"Program not found")
+            
+        return p.run(*args, **kwargs)
+    
+
+    def __init__(self, source, target_function, codehash, globals):
+        self.sources = textwrap.dedent(source)
+        self.target_function = target_function
+        self.globals = globals
+        self.codehash = codehash
+        self.cnt = 0
         self.step = {}
 
 
     def compile(self):
-        env =  {}
+        env =  self.globals.copy()
         exec(self.sources, env)
         func = env[self.target_function]
         return func, env
             
     def run(self, *args, **kwargs):
+        self.cnt += 1
         func, env = self.compile()
         return func(*args, **kwargs)
 
-    
     def trace(self, *args, **kwargs):
         func, env = self.compile()
         trace = []

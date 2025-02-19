@@ -21,6 +21,9 @@ class Value:
     
     @staticmethod
     def Token(policy : PolicyId, token : TokenName, amount : int):
+        if isinstance(policy, Address):
+            policy = policy.value
+
         return Value({policy: {token: amount}})
     
     def __iter__(self):
@@ -135,12 +138,13 @@ class Output:
             value = Value.ADA(value)
 
         address = Address.get(address)
-        self.address = address
-
+       
         if address.is_script:
-            self.script = address.script
+            self.script = address.program
         else:
             self.script = None
+
+        self.address = address
 
         self.value = value
         self.datum = datum
@@ -150,7 +154,7 @@ class Output:
             context = ScriptContext(ScriptPurpose.Spending, transaction, None)
             context.txout = self
 
-            if not self.script(transaction.redeemers, context):
+            if not self.script.run(transaction.redeemers, context):
                 return False
             
         if not self.address.is_script:
@@ -239,6 +243,9 @@ class CardanoTransaction(Transaction):
         self.time_range = time_range
 
     def set_redeemer(self, policy : PolicyId, redeemer):
+        if isinstance(policy, Address):
+            policy = policy.value
+            
         self.redeemers[policy] = redeemer
     
     def add_metadata(self, key: str, value: Union[str, dict, list]):
@@ -270,17 +277,6 @@ class Cardano(Blockchain):
         self.blocks = []
         self.policies = {}
         self.transaction_dict = {}
-
-    
-    def add_policy(self, script : Script) -> PolicyId:
-        if script is None:
-            return None
-        
-        # calculate hash of script
-        policy = hash(str(script.__code__.co_code))
-        Cryptic.add("pol"+str(len(self.policies)), policy)
-        self.policies[policy] = script
-        return policy
     
     def get_transaction(self, hash : str):
         return self.transaction_dict.get(hash,None)
@@ -333,15 +329,12 @@ class Cardano(Blockchain):
             if policy == "" or len(tokens) == 0: 
                 continue
 
-            if policy not in self.policies:
-                transaction.status_msg = "policy not found: "+policy
-                transaction.status = TransactionStatus.FAILED
-                return False
-            
+            program = Address.get(policy).program
+
             context = ScriptContext(ScriptPurpose.Minting, transaction, policy)
             redeemer = transaction.redeemers[policy] if policy in transaction.redeemers else None
 
-            if not self.policies[policy](redeemer, context):
+            if not program.run(redeemer, context):
                 transaction.status_msg = "minting policy failed: "+policy
                 transaction.status = TransactionStatus.FAILED
                 return False
@@ -408,7 +401,7 @@ class Cardano(Blockchain):
 
     def UTXOs_for_address(self, addr : Address):
         addr = Address.get(addr)
-        return [ key for key, output in self.utxo_set.items() if output.address == addr]
+        return [ key for key, output in self.utxo_set.items() if output.address == addr or output.address == addr.value]
                 
     
     def transfer(self, source : Wallet, destination : Wallet, amount : Value | int):

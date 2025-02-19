@@ -1,5 +1,7 @@
 import hashlib
 from typing import List, Callable
+from types import CodeType, FunctionType, MethodType
+
 Signature = int
 
 N = 10000000001141
@@ -110,6 +112,7 @@ class Public:
         return Cryptic.get(self.pubkey)
 
 
+
 class Address:
     cache = {}
 
@@ -134,21 +137,14 @@ class Address:
         if type(source) is Address:
             return source
         
-        if callable(source):
-            if source.__code__.co_code in Address.cache:
-                return Address.cache[source.__code__.co_code]
-            
-            address = Address(source)
-            Address.cache[str(source.__code__.co_code)] = address
-            return address
-        
         source = source.get_public()
 
         if isinstance(source,Public):
             if source.pubkey in Address.cache:
                 return Address.cache[source.pubkey]
             
-            address = Address(source)
+            hashcode = hash("public+"+hex(source.pubkey))
+            address = Address(source, hashcode, False)
             Address.cache[source.pubkey] = address
             return address
    
@@ -160,21 +156,20 @@ class Address:
         
         return self.public.verify(msg, signature)
     
-    def __init__(self, source : Public|Callable):
-        if isinstance(source,Public):
-            self.public = source
-            self.value = hash("public+"+hex(source.pubkey))
-            self.is_script = False
-            Address.cache[self.value] = self
-        elif callable(source):
-            self.script = source
-            self.value = hash("script+"+str(source.__code__.co_code))
-            self.is_script = True
-            Address.cache[self.value] = self
+    def __init__(self, source : any, hash : str, is_script : bool):
+        self.value = hash
+        self.is_script = is_script
 
+        if is_script:
+            self.program = source
         else:
-            raise Exception("Invalid address source")
-
+            if not isinstance(source, Public):
+                raise Exception("Invalid source")
+        
+            self.public = source
+        
+        Address.cache[self.value] = self
+        
 
     def __str__(self):
         return Cryptic.get(self.value)
