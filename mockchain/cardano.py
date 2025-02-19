@@ -206,6 +206,8 @@ class CardanoTransaction(Transaction):
         self.signatories = []
         self.redeemers = {}
         self.status = TransactionStatus.CREATED
+
+        # TODO check if this is correct
         self.metadata = metadata if metadata else {}
 
         txdata = ",".join([input.ptr for input in self.inputs]) + ") -> (" + ",".join([str(output) for output in self.outputs]) 
