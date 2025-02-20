@@ -6,6 +6,7 @@ import mockchain.cardano
 
 import code
 import types
+import os
 
 def env_to_string(env):
     res = ""
@@ -48,8 +49,6 @@ class Program:
 
             p = Program(sources, target_function, codehash, globals)
             address = Address(p, codehash, True)
-            p.compile()
-            
             Address.cache[codehash] = address
 
         return Address.cache[codehash]
@@ -77,21 +76,35 @@ class Program:
         self.codehash = codehash
         self.cnt = 0
         self.step = {}
-
+        self.compiled_code = None
+        self.compiled_code = self.compile()
 
     def compile(self):
-        env =  self.globals.copy()
-        compiled_code = code.compile_command(self.sources, "<mockchain-program>", "exec")
-    
+        if self.compiled_code is not None:
+            return self.compiled_code
+
+        if not os.path.exists(".programs"):
+            os.makedirs(".programs")
+            
+        filename=".programs/"+self.codehash+".py"
+        with open(filename, "w") as f:
+            f.write(self.sources)
+
+        compiled_code = code.compile_command(self.sources, filename, "exec")
+        env = self.globals.copy()
         exec(compiled_code, env)
+
+        return compiled_code
+    
+            
+    def run(self, *args, **kwargs):
+        env = self.globals.copy()
+        exec(self.compiled_code, env)
         func = env[self.target_function]
         func = types.FunctionType(func.__code__, env, func.__name__)
 
-        return func, env
-            
-    def run(self, *args, **kwargs):
         self.cnt += 1
-        func, env = self.compile()
+
         return func(*args, **kwargs)
 
     def trace(self, *args, **kwargs):
