@@ -85,7 +85,7 @@ class Program:
 
         if not os.path.exists(".programs"):
             os.makedirs(".programs")
-            
+
         filename=".programs/"+self.codehash+".py"
         with open(filename, "w") as f:
             f.write(self.sources)
@@ -97,19 +97,23 @@ class Program:
         return compiled_code
     
             
-    def run(self, *args, **kwargs):
+    def build(self):
         env = self.globals.copy()
         exec(self.compiled_code, env)
         func = env[self.target_function]
         func = types.FunctionType(func.__code__, env, func.__name__)
 
+        return func, env
+    
+    def run(self, *args, **kwargs):
+        func, env = self.build()
         self.cnt += 1
-
         return func(*args, **kwargs)
 
     def trace(self, *args, **kwargs):
-        func, env = self.compile()
+        func, env = self.build()
         trace = []
+
 
         def callback(frame, event, arg):
             nonlocal trace

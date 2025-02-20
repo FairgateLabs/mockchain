@@ -8,23 +8,14 @@ class Operation:
     def __init__(self, opcode : str, args : List[str]):
         self.opcode = opcode
         self.args = args
-        self.parametric = False
         
-        for arg in args:
-            if isinstance(arg, str) and arg.startswith("$"):
-                self.parametric = True
-                break
-
     def __str__(self):
         return self.opcode + "(" + ", ".join([Cryptic.get(arg) for arg in self.args]) + ")"
     
     def __repr__(self):
         return self.opcode + "(" + ", ".join([Cryptic.get(arg) for arg in self.args]) + ")"
     
-    def apply(self, protocol):
-        if not self.parametric:
-            return self
-        
+    def apply(self, protocol):      
         args = [protocol.get(arg) for arg in self.args]
         return Operation(self.opcode, args)
     
@@ -58,20 +49,12 @@ class Operation:
 class Script:
     def __init__(self, script : List[Operation]):
         self.script = script
-        self.parametric = False
-        for op in script:
-            if op.parametric:
-                self.parametric = True
-                break
-
+  
         
     def copy(self):
         return Script(self.script)
     
-    def apply(self, protocol):
-        if not self.parametric:
-            return self
-        
+    def apply(self, protocol):        
         script = [op.apply(protocol) for op in self.script]
         return Script(script)
     
@@ -192,24 +175,12 @@ class Output:
         self.sequence = 0
         self.hash = ""
         self.ordinal = None
-        self.parametric = False
 
-        for script in scripts:
-            if script.parametric:
-                self.parametric = True
-                break
-
-        if isinstance(amount, str) and amount.startswith("$"):
-            self.parametric = True
-    
     def copy(self):
         scripts = [script.copy() for script in self.scripts]
         return Output(self.amount, scripts)
     
-    def apply(self, protocol):
-        if not self.parametric:
-            return Output(self.amount, self.scripts)
-        
+    def apply(self, protocol):        
         scripts = [script.apply(protocol) for script in self.scripts]
         return Output(protocol.get(self.amount), scripts)
 
@@ -248,7 +219,6 @@ class Input:
         self.ptr = ptr
         self.leaf = leaf
         self.witness = [] 
-        self.parametric = ptr.startswith("$")
 
     def set_witness(self, witness : List[str]):
         self.witness = witness
@@ -261,16 +231,8 @@ class Input:
     def copy(self):
         return Input(self.ptr, self.leaf)
     
-    def apply(self, protocol ):
-        if not self.parametric:
-            return self
-        
-        ptr = self.ptr.split(":")
-        if len(ptr) == 1:
-            ptr = protocol.get(ptr[0])
-        else:
-            ptr = protocol.get(ptr[0])+":"+protocol.get(ptr[1])
-
+    def apply(self, protocol ):  
+        ptr = protocol.get(self.ptr)
         return Input(ptr, self.leaf)
 
     def __str__(self):
