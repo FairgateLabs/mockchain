@@ -2,6 +2,10 @@ import inspect
 import textwrap
 import sys
 from mockchain.crypto import hash, Address, Cryptic
+import mockchain.cardano
+
+import code
+import types
 
 def env_to_string(env):
     res = ""
@@ -36,10 +40,16 @@ class Program:
         codehash = hash(sources + "\n" + str(globals))
 
         if not codehash in Address.cache:
-            Cryptic.add(codehash, target_function)
+            Cryptic.add(target_function, codehash)
+            globals = globals.copy()
+            globals["Value"]=mockchain.cardano.Value
+            globals["ScriptPurpose"]=mockchain.cardano.ScriptPurpose
+            globals["ScriptContext"]=mockchain.cardano.ScriptContext
+
             p = Program(sources, target_function, codehash, globals)
             address = Address(p, codehash, True)
-
+            p.compile()
+            
             Address.cache[codehash] = address
 
         return Address.cache[codehash]
@@ -71,8 +81,12 @@ class Program:
 
     def compile(self):
         env =  self.globals.copy()
-        exec(self.sources, env)
+        compiled_code = code.compile_command(self.sources, "<mockchain-program>", "exec")
+    
+        exec(compiled_code, env)
         func = env[self.target_function]
+        func = types.FunctionType(func.__code__, env, func.__name__)
+
         return func, env
             
     def run(self, *args, **kwargs):

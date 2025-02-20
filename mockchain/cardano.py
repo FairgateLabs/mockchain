@@ -43,11 +43,19 @@ class Value:
     
     def __getitem__(self, key):
         if type(key) is tuple:
-            if key[0] in self.value and key[1] in self.value[key[0]]:
-                return self.value[key[0]][key[1]]
+            policy = key[0]
+            token = key[1]
+            if isinstance(policy, Address):
+                policy = policy.value
+
+            if policy in self.value and token in self.value[policy]:
+                return self.value[policy][token]
             else:
                 return 0
         else:
+            if isinstance(key, Address):
+                key = key.value
+
             if key in self.value:
                 return self.value[key]
             else:
@@ -223,10 +231,10 @@ class CardanoTransaction(Transaction):
     
     
     def __str__(self):
-        return  Cryptic.get(self.hash) + " (" + ",".join([Cryptic.get(input.ptr) for input in self.inputs]) + ") -> (" + ",".join([str(output) for output in self.outputs]) + ")" + self.status.value
+        return  Cryptic.get(self.hash) + " (" + ",".join([Cryptic.get(input.ptr) for input in self.inputs]) + ") -> (" + ",".join([str(output) for output in self.outputs]) + ") " + self.status.value
     
     def __repr__(self):
-        return  Cryptic.get(self.hash) + " (" + ",".join([Cryptic.get(input.ptr) for input in self.inputs]) + ") -> (" + ",".join([str(output) for output in self.outputs]) + ")" + self.status.value
+        return  Cryptic.get(self.hash) + " (" + ",".join([Cryptic.get(input.ptr) for input in self.inputs]) + ") -> (" + ",".join([str(output) for output in self.outputs]) + ") " + self.status.value
     
     def add_signature(self, signature : str, address : Address):
         self.signatures.append(signature)
@@ -245,7 +253,7 @@ class CardanoTransaction(Transaction):
     def set_redeemer(self, policy : PolicyId, redeemer):
         if isinstance(policy, Address):
             policy = policy.value
-            
+
         self.redeemers[policy] = redeemer
     
     def add_metadata(self, key: str, value: Union[str, dict, list]):

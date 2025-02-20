@@ -1,5 +1,7 @@
 import unittest
 from mockchain.program import Program
+from typing import List
+
 
 class TestProgram(unittest.TestCase):
     def test_create(self):
@@ -12,7 +14,6 @@ class TestProgram(unittest.TestCase):
         def f3():
             return 3
 
-      
         h1 = Program.address(f1, x=1)
         h2 = Program.address(f2, x=1)
         h3 = Program.address(f1, x=1)
@@ -45,3 +46,21 @@ class TestProgram(unittest.TestCase):
         self.assertEqual(h3.program.run(), 21)
         self.assertEqual(h4.program.run(10,20), 30)
         
+    def test_raise(self):
+        def f1():
+            raise Exception("error")
+        
+        h1 = Program.address(f1)
+        
+        with self.assertRaises(Exception):
+            h1.program.run()
+            
+    def test_compile_error(self):
+        def f1(a:List[int]):
+            return 2
+        
+        with self.assertRaises(Exception):
+            h1 = Program.address(f1)
+
+
+      
