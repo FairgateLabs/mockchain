@@ -236,14 +236,14 @@ class CardanoTransaction(Transaction):
     def __repr__(self):
         return  Cryptic.get(self.hash) + " (" + ",".join([Cryptic.get(input.ptr) for input in self.inputs]) + ") -> (" + ",".join([str(output) for output in self.outputs]) + ") " + self.status.value
     
-    def add_signature(self, signature : str, address : Address):
+    def add_signature(self, address : Address, signature : str ):
         self.signatures.append(signature)
         self.signatories.append(address)
         self.status = TransactionStatus.SIGNED
         
     def sign(self, user : Wallet):
         signature = user.sign(self.hash)
-        self.add_signature(signature, user.get_address())
+        self.add_signature(user.get_address(), signature)
  
         return True
     
