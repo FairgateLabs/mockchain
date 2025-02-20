@@ -6,3 +6,4 @@ build/
 dist/
 mockchain.egg-info/
 .vscode/
+.programs/
