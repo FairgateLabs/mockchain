@@ -1,3 +1,4 @@
+import re
 from mockchain.blockchain import Blockchain, Wallet
 from mockchain.bitcoin import Bitcoin
 from mockchain.cardano import Cardano
@@ -177,7 +178,25 @@ class Scenario:
 
     def execute(self, *args, **kwargs):
         loop = asyncio.new_event_loop()
-        loop.run_until_complete(self.run(*args, **kwargs))
-        loop.close()
+        asyncio.set_event_loop(loop)
 
-        return self.result
+        try:
+            loop.run_until_complete(self.run(*args, **kwargs))
+            loop.close()
+            return self.result
+        except KeyboardInterrupt:
+            print("\nCTRL+C detected! Gracefully shutting down...")
+
+            # Cancel all running tasks
+            tasks = asyncio.all_tasks(loop)
+            for task in tasks:
+                task.cancel()
+                try:
+                    loop.run_until_complete(task)
+                except asyncio.CancelledError:
+                    pass
+
+            print("Cleanup complete, closing event loop.")
+            loop.close()
+            return False
+

@@ -472,6 +472,9 @@ class Cardano(Blockchain):
             end = block_height+1
 
         for i in range(start, end):
+            if self.blocks[i] == []:
+                continue
+
             print(f"Cardano Block {i} -----------------------------------------")
             for tx in self.blocks[i]:
                 print(f"  {tx}")
