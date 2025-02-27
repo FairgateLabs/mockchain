@@ -255,7 +255,13 @@ class CardanoTransaction(Transaction):
             policy = policy.value
 
         self.redeemers[policy] = redeemer
-    
+
+    def get_redeemer(self, policy : PolicyId):
+        if isinstance(policy, Address):
+            policy = policy.value
+
+        return self.redeemers[policy]
+
     def add_metadata(self, key: str, value: Union[str, dict, list]):
         self.metadata[key] = value
 
