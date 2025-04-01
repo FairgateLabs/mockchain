@@ -10,6 +10,8 @@ Mockchain is a simple Python library that provides a basic implementation of bit
 
 ## Installation
 
+- Create a virtualenv
+- Run `pip install -r requirements.txt`
 
 ## Usage
 Here is a simple example of how to use the MockChain library:
