@@ -49,9 +49,12 @@ class Secret:
     
 
 class Key:
-    def __init__(self, name : str):
+    def __init__(self, name : str, secret = None):
         self.name = name
-        self.secret = Secret.number()
+        if secret is None:
+            self.secret = Secret.number()
+        else:
+            self.secret = secret
         self.public = Public.from_secret(self.secret)  
 
     def get_public(self):
@@ -69,10 +72,10 @@ class Key:
         return self.get_public().verify(msg, signature)
 
     def encrypt(self, msg : int) -> int:
-        return (msg - self.secret + N) % N
+        return (msg + self.public.pubkey) % N
     
     def decrypt(self, cipher):
-        return (cipher + self.secret) % N
+        return (cipher - self.public.pubkey + N) % N
 
     def __repr__(self) -> str:
         return "key_"+self.name

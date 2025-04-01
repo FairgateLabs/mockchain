@@ -1,15 +1,15 @@
 # Mockchain README
 
-Mockchain is a simple Python library that provides a basic implementation of simulated blockchains. It allows developers to illustrate protocol ideas by showing how different components will interact in this environment.
+Mockchain is a simple Python library that provides a basic implementation of bitcoins. It allows developers to illustrate ideas by showing how different components will interact.
 
 ## Features
-- Simulate bitcoin and cardano blockchains
-- Implement lightweight versions of cryptographic primitives and protocols
+- Simulate bitcoin and cardano bitcoins
+- manage public key cryptography, key aggregation and transfer of ownership protocols
 - Has support for scenarios with simple agent systems
-- Manage virtual machines for disputable computing
+- manage a vm for disputable computing
 
 ## Installation
-clone this repo and use pip install or setup.py
+
 
 ## Usage
 Here is a simple example of how to use the MockChain library:

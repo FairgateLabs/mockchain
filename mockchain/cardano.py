@@ -236,14 +236,14 @@ class CardanoTransaction(Transaction):
     def __repr__(self):
         return  Cryptic.get(self.hash) + " (" + ",".join([Cryptic.get(input.ptr) for input in self.inputs]) + ") -> (" + ",".join([str(output) for output in self.outputs]) + ") " + self.status.value
     
-    def add_signature(self, signature : str, address : Address):
+    def add_signature(self, address : Address, signature : str ):
         self.signatures.append(signature)
         self.signatories.append(address)
         self.status = TransactionStatus.SIGNED
         
     def sign(self, user : Wallet):
         signature = user.sign(self.hash)
-        self.add_signature(signature, user.get_address())
+        self.add_signature(user.get_address(), signature)
  
         return True
     
@@ -255,7 +255,13 @@ class CardanoTransaction(Transaction):
             policy = policy.value
 
         self.redeemers[policy] = redeemer
-    
+
+    def get_redeemer(self, policy : PolicyId):
+        if isinstance(policy, Address):
+            policy = policy.value
+
+        return self.redeemers[policy]
+
     def add_metadata(self, key: str, value: Union[str, dict, list]):
         self.metadata[key] = value
 
@@ -472,6 +478,9 @@ class Cardano(Blockchain):
             end = block_height+1
 
         for i in range(start, end):
+            if self.blocks[i] == []:
+                continue
+
             print(f"Cardano Block {i} -----------------------------------------")
             for tx in self.blocks[i]:
                 print(f"  {tx}")

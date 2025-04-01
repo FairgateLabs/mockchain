@@ -64,8 +64,6 @@ class TestTransferOfOwnership(unittest.TestCase):
         self.assertEqual(apk.pubkey, too.groups[-1].pubkey)
 
 
-
-
 class TestCommit(unittest.TestCase):
     def test_commit(self):
         m1 = "hello"
@@ -76,6 +74,17 @@ class TestCommit(unittest.TestCase):
         self.assertEqual(h1, hash(m1))
         self.assertEqual(h2, hash(m2))
         self.assertNotEqual(h1, h2)
+
+
+class TestEncryptDecrypt(unittest.TestCase):
+    def test_encrypt_decrypt(self):
+        k = Key('1')
+        pk = k.get_public()
+        msg = 123456789
+        enc = pk.encrypt(msg)
+        dec = k.decrypt(enc)
+        self.assertEqual(msg, dec)
+
 
 if __name__ == '__main__':
     unittest.main()
